@@ -17,6 +17,8 @@ export interface CompletedData extends EventData {
   responseBody: string;
 }
 
+export type UploadId = string;
+
 export type FileInfo = {
   name: string;
   exists: boolean;
@@ -107,22 +109,33 @@ export interface MultipartUploadOptions extends UploadOptions {
 export interface AddListener {
   (
     event: 'progress',
-    uploadId: string | null,
+    uploadId: UploadId | null,
     callback: (data: ProgressData) => void,
   ): EventSubscription;
   (
     event: 'error',
-    uploadId: string | null,
+    uploadId: UploadId | null,
     callback: (data: ErrorData) => void,
   ): EventSubscription;
   (
     event: 'completed',
-    uploadId: string | null,
+    uploadId: UploadId | null,
     callback: (data: CompletedData) => void,
   ): EventSubscription;
   (
     event: 'cancelled',
-    uploadId: string | null,
+    uploadId: UploadId | null,
     callback: (data: EventData) => void,
   ): EventSubscription;
+}
+
+export interface ChunkInfo {
+  /**
+   * Byte position of the chunk
+   */
+  position: number;
+  /**
+   * Byte length of the chunk
+   */
+  size: number;
 }

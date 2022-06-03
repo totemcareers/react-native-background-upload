@@ -4,8 +4,10 @@
 import { NativeModules, DeviceEventEmitter } from 'react-native';
 import {
   AddListener,
+  ChunkInfo,
   FileInfo,
   MultipartUploadOptions,
+  UploadId,
   UploadOptions,
 } from 'types';
 
@@ -60,9 +62,16 @@ Returns a promise with the string ID of the upload.  Will reject if there is a c
 It is recommended to add listeners in the .then of this promise.
 
 */
-export const startUpload = (
-  options: UploadOptions | MultipartUploadOptions,
-): Promise<string> => NativeModule.startUpload(options);
+export const startUpload = ({
+  path,
+  ...options
+}: UploadOptions | MultipartUploadOptions): Promise<UploadId> => {
+  if (!path.match(/^file:\/\//)) {
+    path = 'file://' + path;
+  }
+
+  return NativeModule.startUpload({ ...options, path });
+};
 
 /*
 Cancels active upload by string ID of the upload.
@@ -99,5 +108,16 @@ export const addListener: AddListener = (eventType, uploadId, listener) => {
     }
   });
 };
+
+/*
+Splits a parent file into {numChunks} chunks and place them into the specified directory.
+Each chunk file will be named by its corresponding index (0, 1, 2,...).
+*/
+export const chunkFile = (
+  parentFilePath: string,
+  chunkDirPath: string,
+  numChunks: number,
+): Promise<ChunkInfo[]> =>
+  NativeModule.chunkFile(parentFilePath, chunkDirPath, numChunks);
 
 export default { startUpload, cancelUpload, addListener, getFileInfo };

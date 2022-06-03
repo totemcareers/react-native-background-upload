@@ -12,6 +12,7 @@ export interface CompletedData extends EventData {
     responseCode: number;
     responseBody: string;
 }
+export declare type UploadId = string;
 export declare type FileInfo = {
     name: string;
     exists: boolean;
@@ -94,8 +95,18 @@ export interface MultipartUploadOptions extends UploadOptions {
     };
 }
 export interface AddListener {
-    (event: 'progress', uploadId: string | null, callback: (data: ProgressData) => void): EventSubscription;
-    (event: 'error', uploadId: string | null, callback: (data: ErrorData) => void): EventSubscription;
-    (event: 'completed', uploadId: string | null, callback: (data: CompletedData) => void): EventSubscription;
-    (event: 'cancelled', uploadId: string | null, callback: (data: EventData) => void): EventSubscription;
+    (event: 'progress', uploadId: UploadId | null, callback: (data: ProgressData) => void): EventSubscription;
+    (event: 'error', uploadId: UploadId | null, callback: (data: ErrorData) => void): EventSubscription;
+    (event: 'completed', uploadId: UploadId | null, callback: (data: CompletedData) => void): EventSubscription;
+    (event: 'cancelled', uploadId: UploadId | null, callback: (data: EventData) => void): EventSubscription;
+}
+export interface ChunkInfo {
+    /**
+     * Byte position of the chunk
+     */
+    position: number;
+    /**
+     * Byte length of the chunk
+     */
+    size: number;
 }
