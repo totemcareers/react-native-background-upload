@@ -86,6 +86,7 @@ export interface UploadOptions {
      */
     appGroup?: string;
     field?: string;
+    isDiscretionary?: boolean;
 }
 export interface MultipartUploadOptions extends UploadOptions {
     type: 'multipart';

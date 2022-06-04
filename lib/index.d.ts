@@ -1,4 +1,4 @@
-import { AddListener, ChunkInfo, FileInfo, MultipartUploadOptions, UploadId, UploadOptions } from 'types';
+import { AddListener, ChunkInfo, FileInfo, MultipartUploadOptions, UploadId, UploadOptions } from './types';
 export declare const getFileInfo: (path: string) => Promise<FileInfo>;
 export declare const startUpload: ({ path, ...options }: UploadOptions | MultipartUploadOptions) => Promise<UploadId>;
 export declare const cancelUpload: (cancelUploadId: string) => Promise<boolean>;

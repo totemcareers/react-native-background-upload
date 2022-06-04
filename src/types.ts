@@ -96,6 +96,10 @@ export interface UploadOptions {
   appGroup?: string;
   // Necessary only for multipart type upload
   field?: string;
+  // iOS only
+  // Whether the upload should wait for "good" conditions to trigger
+  // (connected to wifi internet, high in power, high in amount of cellular data quota)
+  isDiscretionary?: boolean;
 }
 
 export interface MultipartUploadOptions extends UploadOptions {
