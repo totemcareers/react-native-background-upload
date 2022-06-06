@@ -109,15 +109,23 @@ export const addListener: AddListener = (eventType, uploadId, listener) => {
   });
 };
 
-/*
-Splits a parent file into {numChunks} chunks and place them into the specified directory.
-Each chunk file will be named by its corresponding index (0, 1, 2,...).
-*/
-export const chunkFile = (
-  parentFilePath: string,
-  chunkDirPath: string,
-  numChunks: number,
-): Promise<ChunkInfo[]> =>
-  NativeModule.chunkFile(parentFilePath, chunkDirPath, numChunks);
+export const ios = {
+  /*
+  Splits a parent file into {numChunks} chunks and place them into the specified directory.
+  Each chunk file will be named by its corresponding index (0, 1, 2,...).
+  */
+  chunkFile: (
+    parentFilePath: string,
+    chunkDirPath: string,
+    numChunks: number,
+  ): Promise<ChunkInfo[]> =>
+    NativeModule.chunkFile(parentFilePath, chunkDirPath, numChunks),
+};
 
-export default { startUpload, cancelUpload, addListener, getFileInfo };
+export default {
+  startUpload,
+  cancelUpload,
+  addListener,
+  getFileInfo,
+  ios,
+};

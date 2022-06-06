@@ -316,7 +316,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     if(error) @throw error;
     
     NSUInteger numBytes = [parentFile length];
-    NSUInteger chunkSize = (numBytes + numChunks - 1) / numChunks; // this is ceil(numBytes/chunkSize)
+    NSUInteger chunkSize = numBytes / numChunks + (numBytes % numChunks > 0 ? 1 : 0);
     
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_group_t group = dispatch_group_create();
@@ -392,7 +392,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
 }
 
 - (NSURLSession *)urlSession {
-    if (_urlSession == nil) return _urlSession;
+    if (_urlSession) return _urlSession;
     
     NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:BACKGROUND_SESSION_ID];
     
@@ -408,7 +408,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
 }
 
 - (NSURLSession *)discretionaryUrlSession {
-    if (_discretionaryUrlSession == nil) return _discretionaryUrlSession;
+    if (_discretionaryUrlSession) return _discretionaryUrlSession;
     
     NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:DISCRETIONARY_BACKGROUND_SESSION_ID];
     
