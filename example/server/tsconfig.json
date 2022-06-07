@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "outDir": "functions/lib",
+    "sourceMap": true,
+    "strict": true,
+    "target": "ESNext",
+    "typeRoots": ["node_modules/@types"],
+    "esModuleInterop": true
+  },
+  "compileOnSave": true,
+  "include": ["functions", "src"]
+}
