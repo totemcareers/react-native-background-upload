@@ -19,15 +19,15 @@ export interface CompletedData extends EventData {
 
 export type UploadId = string;
 
-export type FileInfo = {
+export interface FileInfo {
   name: string;
   exists: boolean;
   size?: number;
   extension?: string;
   mimeType?: string;
-};
+}
 
-export type NotificationOptions = {
+export interface NotificationOptions {
   /**
    * Enable or diasable notifications. Works only on Android version < 8.0 Oreo. On Android versions >= 8.0 Oreo is required by Google's policy to display a notification when a background service run  { enabled: true }
    */
@@ -76,7 +76,7 @@ export type NotificationOptions = {
    * Sets notification cancelled message   { onCancelledMessage: "Video upload was cancelled" }
    */
   onCancelledMessage: string;
-};
+}
 
 export interface UploadOptions {
   url: string;

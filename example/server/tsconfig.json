@@ -3,7 +3,6 @@
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "functions/lib",
     "sourceMap": true,
     "strict": true,
     "target": "ESNext",
@@ -11,5 +10,5 @@
     "esModuleInterop": true
   },
   "compileOnSave": true,
-  "include": ["functions", "src"]
+  "include": ["src"]
 }

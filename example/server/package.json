@@ -1,6 +1,8 @@
 {
-  "name": "functions",
-  "scripts": {},
+  "name": "rn-background-upload-test-server",
+  "scripts": {
+    "deploy": "sh deploy.sh"
+  },
   "engines": {
     "node": "16"
   },

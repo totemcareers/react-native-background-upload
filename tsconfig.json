@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "outDir": "lib",
-    "baseUrl": "./src",
+    "baseUrl": "src",
     "paths": {
       "openspacelabs/react-native-background-upload": ["./src/index"]
     },
@@ -16,6 +16,10 @@
     "esModuleInterop": true,
     "strict": false,
     "skipLibCheck": true,
-    "noImplicitAny": true,
+    "noImplicitAny": true
   },
+  "exclude": [
+    "example",
+    "lib"
+  ]
 }

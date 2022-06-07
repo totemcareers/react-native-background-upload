@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc && tsc-alias",
     "lint": "yarn lint:ci --fix",
-    "lint:ci": "eslint src/** example/**",
+    "lint:ci": "eslint --ext js,jsx,ts,tsx src example --quiet",
     "test": "echo \"Error: no test specified\" && exit 1",
     "release": "semantic-release"
   },
@@ -43,7 +43,7 @@
     "@semantic-release/npm": "^5.3.4",
     "@semantic-release/release-notes-generator": "^7.3.5",
     "@types/react-native": "^0.64.0",
-    "@typescript-eslint/parser": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.1",
     "eslint": "^6.8.0",
     "eslint-plugin-unused-imports": "^2.0.0",
     "husky": "^4.2.3",
