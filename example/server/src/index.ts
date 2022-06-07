@@ -13,10 +13,7 @@ router.post('/upload', (req, res) => {
   const stream = fs.createWriteStream('/dev/null');
 
   if (req.query.simulateFailImmediately) {
-    res
-      .status(500)
-      .send('Simulated Error')
-      .end();
+    res.status(500).send('Simulated Error').end();
     return;
   }
 
@@ -35,10 +32,7 @@ router.post('/upload', (req, res) => {
 
       console.log(`Processing  ...  ${progress.toFixed(2)}%`);
       if (req.query.simulateFailMidway && progress > 50) {
-        res
-          .status(500)
-          .send('Simulated Error')
-          .end();
+        res.status(500).send('Simulated Error').end();
         resolve();
       }
     });
@@ -49,7 +43,7 @@ router.post('/upload', (req, res) => {
       resolve();
     });
 
-    stream.on('error', err => {
+    stream.on('error', (err) => {
       console.error(err);
       reject(err);
     });

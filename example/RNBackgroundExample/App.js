@@ -55,7 +55,7 @@ const App: () => React$Node = () => {
   const [uploadId, setUploadId] = useState(null);
   const [progress, setProgress] = useState(null);
 
-  const onPressUpload = options => {
+  const onPressUpload = (options) => {
     if (isImagePickerShowing) {
       return;
     }
@@ -68,7 +68,7 @@ const App: () => React$Node = () => {
       chooseFromLibraryButtonTitle: 'Choose From Library',
     };
 
-    ImagePicker.showImagePicker(imagePickerOptions, response => {
+    ImagePicker.showImagePicker(imagePickerOptions, (response) => {
       let didChooseVideo = true;
 
       console.log('ImagePicker response: ', response);
@@ -94,7 +94,7 @@ const App: () => React$Node = () => {
 
       if (finalPath) {
         // Video is stored locally on the device
-        Upload.getFileInfo(finalPath).then(metadata => {
+        Upload.getFileInfo(finalPath).then((metadata) => {
           const uploadOpts = Object.assign(
             {
               path: finalPath,
@@ -107,26 +107,26 @@ const App: () => React$Node = () => {
           );
 
           Upload.startUpload(uploadOpts)
-            .then(uploadId => {
+            .then((uploadId) => {
               console.log(
                 `Upload started with options: ${JSON.stringify(uploadOpts)}`,
               );
               setUploadId(uploadId);
               setProgress(0);
-              Upload.addListener('progress', uploadId, data => {
+              Upload.addListener('progress', uploadId, (data) => {
                 if (data.progress % 5 === 0) {
                   setProgress(+data.progress);
                 }
                 console.log(`Progress: ${data.progress}%`);
               });
-              Upload.addListener('error', uploadId, data => {
+              Upload.addListener('error', uploadId, (data) => {
                 console.log(`Error: ${data.error}%`);
               });
-              Upload.addListener('completed', uploadId, data => {
+              Upload.addListener('completed', uploadId, (data) => {
                 console.log('Completed!');
               });
             })
-            .catch(function(err) {
+            .catch(function (err) {
               setUploadId(null);
               setProgress(null);
               console.log('Upload error!', err);
@@ -163,7 +163,7 @@ const App: () => React$Node = () => {
                   };
 
                   Upload.startUpload(options)
-                    .then(uploadId => {
+                    .then((uploadId) => {
                       console.warn(uploadId);
                       setUploadId(uploadId);
 
@@ -179,7 +179,7 @@ const App: () => React$Node = () => {
                         },
                       );
                     })
-                    .catch(err => {
+                    .catch((err) => {
                       console.warn(err.message);
                     });
                 }}>
@@ -202,7 +202,7 @@ const App: () => React$Node = () => {
                   };
 
                   Upload.startUpload(options)
-                    .then(uploadId => {
+                    .then((uploadId) => {
                       console.warn(uploadId);
                       setUploadId(uploadId);
 
@@ -225,7 +225,7 @@ const App: () => React$Node = () => {
                         },
                       );
                     })
-                    .catch(err => {
+                    .catch((err) => {
                       console.warn(err.message);
                     });
                 }}>

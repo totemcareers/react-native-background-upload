@@ -102,7 +102,7 @@ Events (id is always the upload ID):
   completed - { id: string }
 */
 export const addListener: AddListener = (eventType, uploadId, listener) => {
-  return DeviceEventEmitter.addListener(eventPrefix + eventType, data => {
+  return DeviceEventEmitter.addListener(eventPrefix + eventType, (data) => {
     if (!uploadId || !data || !data.id || data.id === uploadId) {
       listener(data);
     }
