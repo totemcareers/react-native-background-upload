@@ -5,6 +5,11 @@ export declare const cancelUpload: (cancelUploadId: string) => Promise<boolean>;
 export declare const addListener: AddListener;
 export declare const ios: {
     chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
+    getUploadStatus: (jobId: string) => Promise<{
+        state: 'running' | 'suspended' | 'canceling' | 'inactive';
+        bytesSent?: number;
+        totalBytes?: number;
+    }>;
 };
 declare const _default: {
     startUpload: ({ path, ...options }: UploadOptions | MultipartUploadOptions) => Promise<string>;
@@ -13,6 +18,11 @@ declare const _default: {
     getFileInfo: (path: string) => Promise<FileInfo>;
     ios: {
         chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
+        getUploadStatus: (jobId: string) => Promise<{
+            state: "running" | "suspended" | "canceling" | "inactive";
+            bytesSent?: number;
+            totalBytes?: number;
+        }>;
     };
 };
 export default _default;

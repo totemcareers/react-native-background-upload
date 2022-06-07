@@ -282,6 +282,7 @@ RCT_EXPORT_METHOD(getUploadStatus: (NSString *)uploadId resolve:(RCTPromiseResol
                 result = @{
                     @"state": [Helper urlSessionTaskStateToString:[uploadTask state]],
                     @"bytesSent": [NSNumber numberWithUnsignedLongLong:[uploadTask countOfBytesSent]],
+                    @"totalBytes": [NSNumber numberWithUnsignedLongLong:[uploadTask countOfBytesExpectedToSend]],
                 };
                 break;
             }

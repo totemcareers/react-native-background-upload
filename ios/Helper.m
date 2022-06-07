@@ -13,7 +13,7 @@
         case NSURLSessionTaskStateSuspended:
             return @"suspended";
         case NSURLSessionTaskStateCompleted:
-            return @"suspended";
+            return @"completed";
         case NSURLSessionTaskStateCanceling:
             return @"canceling";
         default:
