@@ -275,27 +275,27 @@ RCT_EXPORT_METHOD(getUploadStatus: (NSString *)uploadId resolve:(RCTPromiseResol
     for (NSURLSession *session in sessions) {
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         [session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-            NSDictionary *result = NULL;
             
             for (NSURLSessionTask *uploadTask in uploadTasks) {
                 if (![uploadTask.taskDescription isEqualToString:uploadId]) continue;
-                result = @{
+                NSDictionary *result = @{
                     @"state": [Helper urlSessionTaskStateToString:[uploadTask state]],
                     @"bytesSent": [NSNumber numberWithUnsignedLongLong:[uploadTask countOfBytesSent]],
                     @"totalBytes": [NSNumber numberWithUnsignedLongLong:[uploadTask countOfBytesExpectedToSend]],
                 };
+                resolve(result);
+                resolved = true;
                 break;
             }
-            
-            
-            resolve(result);
-            resolved = true;
+
             dispatch_semaphore_signal(sema);
         }];
         
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
         if(resolved) return;
     }
+    
+    resolve(NULL);
 }
 
 /*
