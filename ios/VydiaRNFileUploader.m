@@ -227,8 +227,11 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
         [uploadTask resume];
         resolve(uploadTask.taskDescription);
     }
-    @catch (NSException *exception) {
-        reject(@"RN Uploader", exception.name, nil);
+     @catch (NSException *exception) {
+        if(exception.reason)
+            reject(@"RN Uploader", exception.reason, nil);
+        else
+            reject(@"RN Uploader", exception.name, nil);
     }
 }
 

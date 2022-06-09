@@ -122,17 +122,18 @@ export const ios = {
     NativeModule.chunkFile(parentFilePath, chunkDirPath, numChunks),
 
   /*
-  Directly check the state of a single upload task.
-  Note that there's no way to distinguish between a task being completed, errored, or non-existent.
-  They're all "inactive". You will need to check that with whichever API service you're using.
+  Directly check the state of a single upload task without using event listeners.
+  Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
+  They're all `undefined`. You will need to either rely on the listeners or 
+  check with the API service you're using to upload.
   */
   getUploadStatus: async (
     jobId: string,
   ): Promise<{
-    state: 'running' | 'suspended' | 'canceling' | 'inactive';
+    state: 'running' | 'suspended' | 'canceling' | undefined;
     bytesSent?: number;
     totalBytes?: number;
-  }> => (await NativeModule.getUploadStatus(jobId)) || { state: 'inactive' },
+  }> => (await NativeModule.getUploadStatus(jobId)) || { state: undefined },
 };
 
 export default {
