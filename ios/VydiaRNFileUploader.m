@@ -317,7 +317,10 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     // This does not load the whole file into memory,
     // but converts the file into a memory region.
     NSData *parentFile = [NSData dataWithContentsOfFile:parentFilePath options:NSDataReadingMappedAlways error:&error];
-    if(error) @throw error;
+    if(error) {
+        reject(@"ChunkFile", @"Failed to chunk file", error);
+        return;
+    };
     
     NSUInteger numBytes = [parentFile length];
     NSUInteger chunkSize = numBytes / numChunks + (numBytes % numChunks > 0 ? 1 : 0);
@@ -350,7 +353,10 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     
-    if(error) @throw error;
+    if(error) {
+        reject(@"ChunkFile", @"Failed to chunk file", error);
+        return;
+    };
     resolve(chunkRanges);
 }
 
