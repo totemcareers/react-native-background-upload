@@ -1,6 +1,8 @@
 import express from 'express';
 import * as fs from 'fs';
 import path from 'path';
+import { inspect } from 'util';
+const md5File = require('md5-file');
 
 const router = express.Router();
 
@@ -9,8 +11,11 @@ router.get('/', (_, res) => {
 });
 
 router.post('/upload', (req, res) => {
-  const filePath = path.join(__dirname, '/image.jpg');
-  const stream = fs.createWriteStream('/dev/null');
+  const filePath = path.join(__dirname, '/uploaded-file.txt');
+  const stream = fs.createWriteStream(filePath);
+
+  console.log(inspect(req.headers));
+  console.log(filePath);
 
   if (req.query.simulateFailImmediately) {
     res.status(500).send('Simulated Error').end();
@@ -39,6 +44,8 @@ router.post('/upload', (req, res) => {
 
     stream.on('close', () => {
       console.log('Processing  ...  100%');
+      fs.promises.stat(filePath).then((r) => console.log(inspect(r)));
+      md5File(filePath).then((r: string) => console.log('MD5:', r));
       res.send(filePath);
       resolve();
     });
