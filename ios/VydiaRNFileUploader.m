@@ -160,7 +160,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
     NSString *appGroup = options[@"appGroup"];
     NSDictionary *headers = options[@"headers"];
     NSDictionary *parameters = options[@"parameters"];
-    BOOL isDiscretionary = options[@"isDiscretionary"];
+    BOOL isDiscretionary = [options[@"isDiscretionary"] boolValue];
     
     @try {
         NSURL *requestUrl = [NSURL URLWithString: uploadUrl];
@@ -406,10 +406,17 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     
     NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:BACKGROUND_SESSION_ID];
     
+    [sessionConfiguration setDiscretionary:NO];
+    [sessionConfiguration setAllowsCellularAccess:YES];
     [sessionConfiguration setHTTPMaximumConnectionsPerHost:1];
     
     if (@available(iOS 11.0, *)) {
         [sessionConfiguration setWaitsForConnectivity:YES];
+    }
+    
+    if (@available(iOS 13.0, *)) {
+        [sessionConfiguration setAllowsConstrainedNetworkAccess:YES];
+        [sessionConfiguration setAllowsExpensiveNetworkAccess:YES];
     }
     
     _urlSession = [NSURLSession sessionWithConfiguration:sessionConfiguration delegate:self delegateQueue:nil];
