@@ -1,7 +1,7 @@
 /**
  * Handles HTTP background file uploads from an iOS or Android device.
  */
-import { NativeModules, DeviceEventEmitter } from 'react-native';
+import { NativeModules, DeviceEventEmitter, Platform } from 'react-native';
 import {
   AddListener,
   ChunkInfo,
@@ -14,6 +14,7 @@ import {
 const NativeModule =
   NativeModules.VydiaRNFileUploader || NativeModules.RNFileUploader; // iOS is VydiaRNFileUploader and Android is RNFileUploader
 const eventPrefix = 'RNFileUploader-';
+const fileURIPrefix = 'file://';
 
 // for IOS, register event listeners or else they don't fire on DeviceEventEmitter
 if (NativeModules.VydiaRNFileUploader) {
@@ -66,8 +67,12 @@ export const startUpload = ({
   path,
   ...options
 }: UploadOptions | MultipartUploadOptions): Promise<UploadId> => {
-  if (!path.match(/^file:\/\//)) {
-    path = 'file://' + path;
+  if (!path.startsWith(fileURIPrefix)) {
+    path = fileURIPrefix + path;
+  }
+
+  if (Platform.OS === 'android') {
+    path = path.replace(fileURIPrefix, '');
   }
 
   return NativeModule.startUpload({ ...options, path });
