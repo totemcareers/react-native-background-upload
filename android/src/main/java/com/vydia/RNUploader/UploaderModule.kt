@@ -135,7 +135,9 @@ class UploaderModule(val reactContext: ReactApplicationContext) : ReactContextBa
 
     runBlocking {
       for (i in 0 until numChunks) {
-        val outputFile = RandomAccessFile(chunkDirPath.plus("/").plus(i.toString()), "rw");
+        val outputPath = chunkDirPath.plus("/").plus(i.toString());
+        val outputFile = RandomAccessFile(outputPath, "rw");
+
         val rangeStart = chunkSize * i;
         var rangeLength = numBytes - rangeStart;
         if (rangeLength > chunkSize) rangeLength = chunkSize;
