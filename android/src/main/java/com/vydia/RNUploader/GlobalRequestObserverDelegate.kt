@@ -7,6 +7,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter
 import net.gotev.uploadservice.data.UploadInfo
+import net.gotev.uploadservice.exceptions.UserCancelledUploadException
 import net.gotev.uploadservice.network.ServerResponse
 import net.gotev.uploadservice.observer.request.RequestObserverDelegate
 
@@ -25,8 +26,13 @@ class GlobalRequestObserverDelegate(reactContext: ReactApplicationContext) : Req
     val params = Arguments.createMap()
     params.putString("id", uploadInfo.uploadId)
 
+    if (exception is UserCancelledUploadException) {
+      sendEvent("cancelled", params, context);
+      return;
+    }
+
     // Make sure we do not try to call getMessage() on a null object
-    if (exception != null) {
+    if (exception.message != null) {
       params.putString("error", exception.message)
     } else {
       params.putString("error", "Unknown exception")
