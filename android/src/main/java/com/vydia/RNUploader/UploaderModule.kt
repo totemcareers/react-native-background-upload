@@ -9,6 +9,8 @@ import android.util.Log
 import android.webkit.MimeTypeMap
 import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.initialize
@@ -20,6 +22,8 @@ import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
 import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.RandomAccessFile
+import java.nio.channels.FileChannel
 import java.util.concurrent.TimeUnit
 
 class UploaderModule(val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
@@ -118,6 +122,38 @@ class UploaderModule(val reactContext: ReactApplicationContext) : ReactContextBa
             .readTimeout(readTimeout.toLong(), TimeUnit.SECONDS)
             .cache(null)
             .build())
+  }
+
+  @ReactMethod
+  fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int, promise: Promise) {
+    val file = RandomAccessFile(parentFilePath, "r")
+
+    val numBytes = file.length();
+    val chunkSize = numBytes / numChunks + if (numBytes % numChunks > 0) 1 else 0
+    val chunkRanges = Arguments.createArray();
+
+
+    runBlocking {
+      for (i in 0 until numChunks) {
+        val outputFile = RandomAccessFile(chunkDirPath.plus("/").plus(i.toString()), "rw");
+        val rangeStart = chunkSize * i;
+        var rangeLength = numBytes - rangeStart;
+        if (rangeLength > chunkSize) rangeLength = chunkSize;
+
+        chunkRanges.pushMap(Arguments.createMap().apply {
+          putString("position", rangeStart.toString());
+          putString("size", rangeLength.toString());
+        })
+
+        launch {
+          val input = file.channel.map(FileChannel.MapMode.READ_ONLY, rangeStart, rangeLength);
+          val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, rangeLength);
+          output.put(input);
+        }
+      }
+    }
+
+    promise.resolve(chunkRanges);
   }
 
   /*

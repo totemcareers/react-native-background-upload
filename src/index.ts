@@ -7,6 +7,7 @@ import {
   ChunkInfo,
   FileInfo,
   MultipartUploadOptions,
+  RawChunkInfo,
   UploadId,
   UploadOptions,
 } from 'types';
@@ -114,18 +115,29 @@ export const addListener: AddListener = (eventType, uploadId, listener) => {
   });
 };
 
-export const ios = {
-  /*
+/*
   Splits a parent file into {numChunks} chunks and place them into the specified directory.
   Each chunk file will be named by its corresponding index (0, 1, 2,...).
   */
-  chunkFile: (
-    parentFilePath: string,
-    chunkDirPath: string,
-    numChunks: number,
-  ): Promise<ChunkInfo[]> =>
-    NativeModule.chunkFile(parentFilePath, chunkDirPath, numChunks),
+export const chunkFile = async (
+  parentFilePath: string,
+  chunkDirPath: string,
+  numChunks: number,
+): Promise<ChunkInfo[]> => {
+  const chunks: RawChunkInfo[] = await NativeModule.chunkFile(
+    parentFilePath,
+    chunkDirPath,
+    numChunks,
+  );
 
+  return chunks.map((chunk) => ({
+    ...chunk,
+    position: Number(chunk.position),
+    size: Number(chunk.size),
+  }));
+};
+
+export const ios = {
   /*
   Directly check the state of a single upload task without using event listeners.
   Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
@@ -146,5 +158,6 @@ export default {
   cancelUpload,
   addListener,
   getFileInfo,
+  chunkFile,
   ios,
 };

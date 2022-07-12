@@ -143,3 +143,8 @@ export interface ChunkInfo {
    */
   size: number;
 }
+
+export interface RawChunkInfo {
+  position: number | string;
+  size: number | string;
+}
