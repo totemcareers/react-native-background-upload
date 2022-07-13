@@ -66,7 +66,14 @@ class GlobalRequestObserverDelegate(reactContext: ReactApplicationContext) : Req
    * Sends an event to the JS module.
    */
   private fun sendEvent(eventName: String, params: WritableMap?, context: Context) {
-    reactContext?.getJSModule(RCTDeviceEventEmitter::class.java)?.emit("RNFileUploader-$eventName", params)
-            ?: Log.e(TAG, "sendEvent() failed due reactContext == null!")
+    // Right after JS reloads, react instance might not be available yet
+    if(!reactContext.hasActiveCatalystInstance()) return
+
+    try {
+      val jsModule = reactContext.getJSModule(RCTDeviceEventEmitter::class.java)
+      jsModule.emit("RNFileUploader-$eventName", params)
+    } catch (exc: Throwable) {
+      Log.e(TAG, "sendEvent() failed", exc);
+    }
   }
 }

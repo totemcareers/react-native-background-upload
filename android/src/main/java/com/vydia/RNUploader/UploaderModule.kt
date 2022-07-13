@@ -29,10 +29,22 @@ import java.util.concurrent.TimeUnit
 class UploaderModule(val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
   private val TAG = "UploaderBridge"
   private var notificationChannelID = "BackgroundUploadChannel"
-  private var isGlobalRequestObserver = false
 
   override fun getName(): String {
     return "RNFileUploader"
+  }
+
+  init {
+    // Initialize everything here so listeners can continue to listen
+    // seamlessly after JS reloads
+    val application = reactContext.applicationContext as Application
+
+    reactContext.addLifecycleEventListener(this)
+    createNotificationChannel()
+    initialize(application, notificationChannelID, BuildConfig.DEBUG)
+
+    val delegate = GlobalRequestObserverDelegate(reactContext)
+    GlobalRequestObserver(application, delegate) // TODO check why this fails after reload
   }
 
   /*
@@ -201,22 +213,15 @@ class UploaderModule(val reactContext: ReactApplicationContext) : ReactContextBa
       notification.merge(options.getMap("notification")!!)
     }
 
-    val application = reactContext.applicationContext as Application
-
-    reactContext.addLifecycleEventListener(this)
 
     if (notification.hasKey("notificationChannel")) {
       notificationChannelID = notification.getString("notificationChannel")!!
     }
 
     createNotificationChannel()
-
+    val application = reactContext.applicationContext as Application
     initialize(application, notificationChannelID, BuildConfig.DEBUG)
 
-    if(!isGlobalRequestObserver) {
-      isGlobalRequestObserver = true
-      GlobalRequestObserver(application, GlobalRequestObserverDelegate(reactContext))
-    }
 
     val url = options.getString("url")
     val filePath = options.getString("path")
