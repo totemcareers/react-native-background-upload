@@ -22,7 +22,9 @@ import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.initialize
+import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
 import net.gotev.uploadservice.UploadServiceConfig.threadPool
+import net.gotev.uploadservice.data.RetryPolicyConfig
 import net.gotev.uploadservice.data.UploadInfo
 import net.gotev.uploadservice.data.UploadNotificationConfig
 import net.gotev.uploadservice.data.UploadNotificationStatusConfig
@@ -70,6 +72,13 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     val pool = threadPool as ThreadPoolExecutor
     pool.corePoolSize = 1
     pool.maximumPoolSize = 1
+
+    retryPolicy = RetryPolicyConfig(
+      initialWaitTimeSeconds = 1,
+      maxWaitTimeSeconds = TimeUnit.HOURS.toSeconds(1).toInt(),
+      multiplier = 2,
+      defaultMaxRetries = 2
+    )
 
     // == register upload listener ==
     val application = reactContext.applicationContext as Application
@@ -313,31 +322,33 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
 
     val url = options.getString("url")
     val filePath = options.getString("path")
-    val method =
-      if (options.hasKey("method") && options.getType("method") == ReadableType.String) options.getString(
-        "method"
-      ) else "POST"
-    val maxRetries =
-      if (options.hasKey("maxRetries") && options.getType("maxRetries") == ReadableType.Number) options.getInt(
-        "maxRetries"
-      ) else 2
+
+    var method: String? = null
+    if (options.hasKey("method") && options.getType("method") == ReadableType.String)
+      method = options.getString("method")
+    if (method == null) method = "POST";
+
+    var maxRetries: Int? = null
+    if (options.hasKey("maxRetries") && options.getType("maxRetries") == ReadableType.Number)
+      maxRetries = options.getInt("maxRetries")
+    if (maxRetries == null) maxRetries = 2
 
 
-    val request = if (requestType == "raw") {
-      BinaryUploadRequest(this.reactApplicationContext, url!!)
-        .setFileToUpload(filePath!!)
-    } else {
-      if (!options.hasKey("field")) {
-        throw InvalidUploadOptionException("field is required field for multipart type.")
+    val request =
+      if (requestType == "raw") {
+        BinaryUploadRequest(this.reactApplicationContext, url!!)
+          .setFileToUpload(filePath!!)
+      } else {
+        if (!options.hasKey("field")) {
+          throw InvalidUploadOptionException("field is required field for multipart type.")
+        }
+        if (options.getType("field") != ReadableType.String) {
+          throw InvalidUploadOptionException("field must be string.")
+        }
+        MultipartUploadRequest(this.reactApplicationContext, url!!)
+          .addFileToUpload(filePath!!, options.getString("field")!!)
       }
-      if (options.getType("field") != ReadableType.String) {
-        throw InvalidUploadOptionException("field must be string.")
-      }
-      MultipartUploadRequest(this.reactApplicationContext, url!!)
-        .addFileToUpload(filePath!!, options.getString("field")!!)
-    }
-    request.setMethod(method!!)
-      .setMaxRetries(maxRetries)
+
     if (notification.getBoolean("enabled")) {
       val notificationConfig = UploadNotificationConfig(
         notificationChannelId = notificationChannelID,
@@ -391,6 +402,8 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
 
     request
+      .setMethod(method)
+      .setMaxRetries(maxRetries)
       .setUploadID(uploadId)
       .startUpload()
 

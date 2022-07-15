@@ -70,31 +70,37 @@ export interface NotificationOptions {
      */
     onCancelledMessage: string;
 }
-export interface UploadOptions {
+export declare type UploadOptions = {
     url: string;
     path: string;
-    type?: 'raw' | 'multipart';
-    method?: 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
+    method: 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
     customUploadId?: string;
     headers?: {
         [index: string]: string;
     };
+    isDiscretionary?: boolean;
+} & (AndroidOnlyUploadOptions | IOSOnlyUploadOptions) & (RawUploadOptions | MultipartUploadOptions);
+declare type AndroidOnlyUploadOptions = {
+    maxRetries?: number;
     notification?: Partial<NotificationOptions>;
+};
+declare type IOSOnlyUploadOptions = {
     /**
      * AppGroup defined in XCode for extensions. Necessary when trying to upload things via this library
      * in the context of ShareExtension.
      */
     appGroup?: string;
-    field?: string;
-    isDiscretionary?: boolean;
-}
-export interface MultipartUploadOptions extends UploadOptions {
+};
+declare type RawUploadOptions = {
+    type: 'raw';
+};
+declare type MultipartUploadOptions = {
     type: 'multipart';
     field: string;
     parameters?: {
         [index: string]: string;
     };
-}
+};
 export interface AddListener {
     (event: 'progress', uploadId: UploadId | null, callback: (data: ProgressData) => void): EventSubscription;
     (event: 'error', uploadId: UploadId | null, callback: (data: ErrorData) => void): EventSubscription;
@@ -115,3 +121,4 @@ export interface RawChunkInfo {
     position: number | string;
     size: number | string;
 }
+export {};

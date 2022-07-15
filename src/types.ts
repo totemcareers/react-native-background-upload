@@ -78,37 +78,44 @@ export interface NotificationOptions {
   onCancelledMessage: string;
 }
 
-export interface UploadOptions {
+export type UploadOptions = {
   url: string;
   path: string;
-  type?: 'raw' | 'multipart';
-  method?: 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
+  method: 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
   customUploadId?: string;
   headers?: {
     [index: string]: string;
   };
-  // Android notification settings
+  // Whether the upload should wait for "good" conditions to trigger
+  // (connected to wifi internet, high in power, high in amount of cellular data quota)
+  isDiscretionary?: boolean;
+} & (AndroidOnlyUploadOptions | IOSOnlyUploadOptions) &
+  (RawUploadOptions | MultipartUploadOptions);
+
+type AndroidOnlyUploadOptions = {
+  maxRetries?: number;
   notification?: Partial<NotificationOptions>;
+};
+
+type IOSOnlyUploadOptions = {
   /**
    * AppGroup defined in XCode for extensions. Necessary when trying to upload things via this library
    * in the context of ShareExtension.
    */
   appGroup?: string;
-  // Necessary only for multipart type upload
-  field?: string;
-  // iOS only
-  // Whether the upload should wait for "good" conditions to trigger
-  // (connected to wifi internet, high in power, high in amount of cellular data quota)
-  isDiscretionary?: boolean;
-}
+};
 
-export interface MultipartUploadOptions extends UploadOptions {
+type RawUploadOptions = {
+  type: 'raw';
+};
+
+type MultipartUploadOptions = {
   type: 'multipart';
   field: string;
   parameters?: {
     [index: string]: string;
   };
-}
+};
 
 export interface AddListener {
   (
@@ -116,16 +123,19 @@ export interface AddListener {
     uploadId: UploadId | null,
     callback: (data: ProgressData) => void,
   ): EventSubscription;
+
   (
     event: 'error',
     uploadId: UploadId | null,
     callback: (data: ErrorData) => void,
   ): EventSubscription;
+
   (
     event: 'completed',
     uploadId: UploadId | null,
     callback: (data: CompletedData) => void,
   ): EventSubscription;
+
   (
     event: 'cancelled',
     uploadId: UploadId | null,

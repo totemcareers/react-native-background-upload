@@ -6,7 +6,6 @@ import {
   AddListener,
   ChunkInfo,
   FileInfo,
-  MultipartUploadOptions,
   RawChunkInfo,
   UploadId,
   UploadOptions,
@@ -67,7 +66,7 @@ It is recommended to add listeners in the .then of this promise.
 export const startUpload = ({
   path,
   ...options
-}: UploadOptions | MultipartUploadOptions): Promise<UploadId> => {
+}: UploadOptions): Promise<UploadId> => {
   if (!path.startsWith(fileURIPrefix)) {
     path = fileURIPrefix + path;
   }
