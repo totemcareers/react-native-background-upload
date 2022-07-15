@@ -19,8 +19,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.gotev.uploadservice.UploadService
+import net.gotev.uploadservice.UploadServiceConfig
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.initialize
+import net.gotev.uploadservice.UploadServiceConfig.threadPool
 import net.gotev.uploadservice.data.UploadInfo
 import net.gotev.uploadservice.data.UploadNotificationConfig
 import net.gotev.uploadservice.data.UploadNotificationStatusConfig
@@ -29,11 +31,14 @@ import net.gotev.uploadservice.observer.request.GlobalRequestObserver
 import net.gotev.uploadservice.okhttp.OkHttpStack
 import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
 import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.util.*
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class DeferredUpload(
@@ -60,6 +65,11 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     // Initialize everything here so listeners can continue to listen
     // seamlessly after JS reloads
     initializeNotificationChannel()
+
+    // == limit number of concurrent uploads ==
+    val pool = threadPool as ThreadPoolExecutor
+    pool.corePoolSize = 1
+    pool.maximumPoolSize = 1
 
     // == register upload listener ==
     val application = reactContext.applicationContext as Application
@@ -165,17 +175,18 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       }
       readTimeout = options.getInt("readTimeout")
     }
-    httpStack = OkHttpStack(
-      OkHttpClient().newBuilder()
-        .followRedirects(followRedirects)
-        .followSslRedirects(followSslRedirects)
-        .retryOnConnectionFailure(retryOnConnectionFailure)
-        .connectTimeout(connectTimeout.toLong(), TimeUnit.SECONDS)
-        .writeTimeout(writeTimeout.toLong(), TimeUnit.SECONDS)
-        .readTimeout(readTimeout.toLong(), TimeUnit.SECONDS)
-        .cache(null)
-        .build()
-    )
+
+    val httpClient = OkHttpClient().newBuilder()
+      .followRedirects(followRedirects)
+      .followSslRedirects(followSslRedirects)
+      .retryOnConnectionFailure(retryOnConnectionFailure)
+      .connectTimeout(connectTimeout.toLong(), TimeUnit.SECONDS)
+      .writeTimeout(writeTimeout.toLong(), TimeUnit.SECONDS)
+      .readTimeout(readTimeout.toLong(), TimeUnit.SECONDS)
+      .cache(null)
+      .build()
+
+    httpStack = OkHttpStack(httpClient)
   }
 
   @ReactMethod
@@ -297,7 +308,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       discretionary = options.getBoolean("isDiscretionary")
     }
 
-    if(uploadShouldBeDeferred(discretionary))
+    if (uploadShouldBeDeferred(discretionary))
       return false
 
     val url = options.getString("url")
