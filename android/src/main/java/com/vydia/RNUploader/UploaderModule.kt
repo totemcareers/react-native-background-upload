@@ -1,7 +1,6 @@
 package com.vydia.RNUploader
 
 import android.app.Application
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.net.ConnectivityManager
@@ -9,49 +8,31 @@ import android.net.ConnectivityManager.NetworkCallback
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkInfo.DetailedState
-import android.os.Build
 import android.util.Log
 import android.webkit.MimeTypeMap
-import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import net.gotev.uploadservice.UploadService
-import net.gotev.uploadservice.UploadServiceConfig
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
-import net.gotev.uploadservice.UploadServiceConfig.initialize
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
 import net.gotev.uploadservice.UploadServiceConfig.threadPool
 import net.gotev.uploadservice.data.RetryPolicyConfig
 import net.gotev.uploadservice.data.UploadInfo
-import net.gotev.uploadservice.data.UploadNotificationConfig
-import net.gotev.uploadservice.data.UploadNotificationStatusConfig
 import net.gotev.uploadservice.exceptions.UserCancelledUploadException
 import net.gotev.uploadservice.observer.request.GlobalRequestObserver
 import net.gotev.uploadservice.okhttp.OkHttpStack
 import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
 import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
-import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.io.File
-import java.io.RandomAccessFile
-import java.nio.channels.FileChannel
 import java.util.*
-import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
-class DeferredUpload(
-  val id: String,
-  val options: ReadableMap,
-) {}
+data class DeferredUpload(val id: String, val options: ReadableMap)
 
 class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
   private val TAG = "UploaderBridge"
-  private var notificationChannelID = "BackgroundUploadChannel"
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
 
   override fun getName(): String {
@@ -66,7 +47,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   init {
     // Initialize everything here so listeners can continue to listen
     // seamlessly after JS reloads
-    initializeNotificationChannel()
 
     // == limit number of concurrent uploads ==
     val pool = threadPool as ThreadPoolExecutor
@@ -78,6 +58,18 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       maxWaitTimeSeconds = TimeUnit.HOURS.toSeconds(1).toInt(),
       multiplier = 2,
       defaultMaxRetries = 2
+    )
+
+    httpStack = OkHttpStack(
+      OkHttpClient().newBuilder()
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .retryOnConnectionFailure(true)
+        .connectTimeout(15L, TimeUnit.SECONDS)
+        .writeTimeout(30L, TimeUnit.SECONDS)
+        .readTimeout(30L, TimeUnit.SECONDS)
+        .cache(null)
+        .build()
     )
 
     // == register upload listener ==
@@ -140,96 +132,13 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun configureUploadServiceHTTPStack(options: ReadableMap) {
-    var followRedirects = true
-    var followSslRedirects = true
-    var retryOnConnectionFailure = true
-    var connectTimeout = 15
-    var writeTimeout = 30
-    var readTimeout = 30
-    //TODO: make 'cache' customizable
-    if (options.hasKey("followRedirects")) {
-      if (options.getType("followRedirects") != ReadableType.Boolean) {
-        throw InvalidUploadOptionException("followRedirects must be a boolean.")
-      }
-      followRedirects = options.getBoolean("followRedirects")
-    }
-    if (options.hasKey("followSslRedirects")) {
-      if (options.getType("followSslRedirects") != ReadableType.Boolean) {
-        throw InvalidUploadOptionException("followSslRedirects must be a boolean.")
-      }
-      followSslRedirects = options.getBoolean("followSslRedirects")
-    }
-    if (options.hasKey("retryOnConnectionFailure")) {
-      if (options.getType("retryOnConnectionFailure") != ReadableType.Boolean) {
-        throw InvalidUploadOptionException("retryOnConnectionFailure must be a boolean.")
-      }
-      retryOnConnectionFailure = options.getBoolean("retryOnConnectionFailure")
-    }
-    if (options.hasKey("connectTimeout")) {
-      if (options.getType("connectTimeout") != ReadableType.Number) {
-        throw InvalidUploadOptionException("connectTimeout must be a number.")
-      }
-      connectTimeout = options.getInt("connectTimeout")
-    }
-    if (options.hasKey("writeTimeout")) {
-      if (options.getType("writeTimeout") != ReadableType.Number) {
-        throw InvalidUploadOptionException("writeTimeout must be a number.")
-      }
-      writeTimeout = options.getInt("writeTimeout")
-    }
-    if (options.hasKey("readTimeout")) {
-      if (options.getType("readTimeout") != ReadableType.Number) {
-        throw InvalidUploadOptionException("readTimeout must be a number.")
-      }
-      readTimeout = options.getInt("readTimeout")
-    }
-
-    val httpClient = OkHttpClient().newBuilder()
-      .followRedirects(followRedirects)
-      .followSslRedirects(followSslRedirects)
-      .retryOnConnectionFailure(retryOnConnectionFailure)
-      .connectTimeout(connectTimeout.toLong(), TimeUnit.SECONDS)
-      .writeTimeout(writeTimeout.toLong(), TimeUnit.SECONDS)
-      .readTimeout(readTimeout.toLong(), TimeUnit.SECONDS)
-      .cache(null)
-      .build()
-
-    httpStack = OkHttpStack(httpClient)
-  }
-
   @ReactMethod
   fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int, promise: Promise) {
-    val file = RandomAccessFile(parentFilePath, "r")
-
-    val numBytes = file.length();
-    val chunkSize = numBytes / numChunks + if (numBytes % numChunks > 0) 1 else 0
-    val chunkRanges = Arguments.createArray();
-
-
-    runBlocking(Dispatchers.IO) {
-      for (i in 0 until numChunks) {
-        val outputPath = chunkDirPath.plus("/").plus(i.toString());
-        val outputFile = RandomAccessFile(outputPath, "rw");
-
-        val rangeStart = chunkSize * i;
-        var rangeLength = numBytes - rangeStart;
-        if (rangeLength > chunkSize) rangeLength = chunkSize;
-
-        chunkRanges.pushMap(Arguments.createMap().apply {
-          putString("position", rangeStart.toString());
-          putString("size", rangeLength.toString());
-        })
-
-        launch {
-          val input = file.channel.map(FileChannel.MapMode.READ_ONLY, rangeStart, rangeLength);
-          val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, rangeLength);
-          output.put(input);
-        }
-      }
+    try {
+      promise.resolve(chunkFile(parentFilePath, chunkDirPath, numChunks));
+    } catch (error: Throwable) {
+      promise.reject(error)
     }
-
-    promise.resolve(chunkRanges);
   }
 
   private fun processDeferredUploads() {
@@ -273,176 +182,49 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   /**
    * @return whether the upload was started
    */
-  private fun _startUpload(uploadId: String, options: ReadableMap): Boolean {
-    for (key in arrayOf("url", "path")) {
-      if (!options.hasKey(key)) {
-        throw InvalidUploadOptionException("Missing '$key' field.")
-      }
-      if (options.getType(key) != ReadableType.String) {
-        throw InvalidUploadOptionException("$key must be a string.")
-      }
-    }
-    if (options.hasKey("headers") && options.getType("headers") != ReadableType.Map) {
-      throw InvalidUploadOptionException("headers must be a hash.")
-    }
-    if (options.hasKey("notification") && options.getType("notification") != ReadableType.Map) {
-      throw InvalidUploadOptionException("notification must be a hash.")
+  private fun _startUpload(uploadId: String, rawOptions: ReadableMap): Boolean {
+
+    val options = StartUploadOptions(rawOptions)
+
+    val notificationManager =
+      (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+    initializeNotificationChannel(options.notificationChannel, notificationManager)
+
+    val request = if (options.requestType == StartUploadOptions.RequestType.RAW) {
+      BinaryUploadRequest(this.reactApplicationContext, options.url)
+        .setFileToUpload(options.path)
+    } else {
+      MultipartUploadRequest(this.reactApplicationContext, options.url)
+        .addFileToUpload(options.path, options.field)
     }
 
-    configureUploadServiceHTTPStack(options)
+    val notification = options.notification
+    if (notification != null)
+      request.setNotificationConfig { _, _ -> notification }
 
-    var requestType: String? = "raw"
-    if (options.hasKey("type")) {
-      requestType = options.getString("type")
-      if (requestType == null) {
-        throw InvalidUploadOptionException("type must be string.")
-      }
-      if (requestType != "raw" && requestType != "multipart") {
-        throw InvalidUploadOptionException("type should be string: raw or multipart.")
-      }
-    }
-    val notification: WritableMap = WritableNativeMap()
-    notification.putBoolean("enabled", true)
-    if (options.hasKey("notification")) {
-      notification.merge(options.getMap("notification")!!)
-    }
+    val connectivityManager =
+      reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    if (notification.hasKey("notificationChannel")) {
-      notificationChannelID = notification.getString("notificationChannel")!!
-      initializeNotificationChannel()
-    }
-
-    var discretionary = false
-    if (options.hasKey("isDiscretionary")) {
-      discretionary = options.getBoolean("isDiscretionary")
-    }
-
-    if (uploadShouldBeDeferred(discretionary))
+    if (!validateNetwork(options.discretionary, connectivityManager))
       return false
 
-    val url = options.getString("url")
-    val filePath = options.getString("path")
 
-    var method: String? = null
-    if (options.hasKey("method") && options.getType("method") == ReadableType.String)
-      method = options.getString("method")
-    if (method == null) method = "POST";
-
-    var maxRetries: Int? = null
-    if (options.hasKey("maxRetries") && options.getType("maxRetries") == ReadableType.Number)
-      maxRetries = options.getInt("maxRetries")
-    if (maxRetries == null) maxRetries = 2
-
-
-    val request =
-      if (requestType == "raw") {
-        BinaryUploadRequest(this.reactApplicationContext, url!!)
-          .setFileToUpload(filePath!!)
-      } else {
-        if (!options.hasKey("field")) {
-          throw InvalidUploadOptionException("field is required field for multipart type.")
-        }
-        if (options.getType("field") != ReadableType.String) {
-          throw InvalidUploadOptionException("field must be string.")
-        }
-        MultipartUploadRequest(this.reactApplicationContext, url!!)
-          .addFileToUpload(filePath!!, options.getString("field")!!)
-      }
-
-    if (notification.getBoolean("enabled")) {
-      val notificationConfig = UploadNotificationConfig(
-        notificationChannelId = notificationChannelID,
-        isRingToneEnabled = notification.hasKey("enableRingTone") && notification.getBoolean("enableRingTone"),
-        progress = UploadNotificationStatusConfig(
-          title = if (notification.hasKey("onProgressTitle")) notification.getString("onProgressTitle")!! else "",
-          message = if (notification.hasKey("onProgressMessage")) notification.getString("onProgressMessage")!! else ""
-        ),
-        success = UploadNotificationStatusConfig(
-          title = if (notification.hasKey("onCompleteTitle")) notification.getString("onCompleteTitle")!! else "",
-          message = if (notification.hasKey("onCompleteMessage")) notification.getString("onCompleteMessage")!! else "",
-          autoClear = notification.hasKey("autoClear") && notification.getBoolean("autoClear")
-        ),
-        error = UploadNotificationStatusConfig(
-          title = if (notification.hasKey("onErrorTitle")) notification.getString("onErrorTitle")!! else "",
-          message = if (notification.hasKey("onErrorMessage")) notification.getString("onErrorMessage")!! else ""
-        ),
-        cancelled = UploadNotificationStatusConfig(
-          title = if (notification.hasKey("onCancelledTitle")) notification.getString("onCancelledTitle")!! else "",
-          message = if (notification.hasKey("onCancelledMessage")) notification.getString("onCancelledMessage")!! else ""
-        )
-      )
-      request.setNotificationConfig { _, _ ->
-        notificationConfig
-      }
+    options.parameters.forEach { (key, value) ->
+      request.addParameter(key, value)
     }
-    if (options.hasKey("parameters")) {
-      if (requestType == "raw") {
-        throw InvalidUploadOptionException("Parameters supported only in multipart type")
-      }
-      val parameters = options.getMap("parameters")
-      val keys = parameters!!.keySetIterator()
-      while (keys.hasNextKey()) {
-        val key = keys.nextKey()
-        if (parameters.getType(key) != ReadableType.String) {
-          throw InvalidUploadOptionException("Parameters must be string key/values. Value was invalid for '$key'")
-        }
-        request.addParameter(key, parameters.getString(key)!!)
-      }
-    }
-    if (options.hasKey("headers")) {
-      val headers = options.getMap("headers")
-      val keys = headers!!.keySetIterator()
-      while (keys.hasNextKey()) {
-        val key = keys.nextKey()
-        if (headers.getType(key) != ReadableType.String) {
-          throw InvalidUploadOptionException("Headers must be string key/values.  Value was invalid for '$key'")
-        }
-        request.addHeader(key, headers.getString(key)!!)
-      }
+    options.headers.forEach { (key, value) ->
+      request.addHeader(key, value)
     }
 
     request
-      .setMethod(method)
-      .setMaxRetries(maxRetries)
+      .setMethod(options.method)
+      .setMaxRetries(options.maxRetries)
       .setUploadID(uploadId)
       .startUpload()
 
     return true
   }
 
-  /*
-   * Validate network connectivity
-   * Inspired by react-native-community/netinfo
-   */
-  private fun uploadShouldBeDeferred(discretionary: Boolean): Boolean {
-    val connectivityManager =
-      reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = connectivityManager.activeNetwork
-    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return true
-
-    // Get the connection type
-    if (discretionary && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
-      return false
-
-    // This may return null per API docs, and is deprecated, but for older APIs (< VERSION_CODES.P)
-    // we need it to test for suspended internet
-    val networkInfo = connectivityManager.getNetworkInfo(network)
-
-    // Check to see if the network is temporarily unavailable or if airplane mode is toggled on
-    var isInternetSuspended = false
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      isInternetSuspended =
-        !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
-    } else if (networkInfo != null) {
-      isInternetSuspended = networkInfo.detailedState != DetailedState.CONNECTED
-    }
-
-    if (isInternetSuspended) return true
-    if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return true
-    if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return true
-
-    return false
-  }
 
   /*
    * Cancels file upload
@@ -495,22 +277,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
   }
 
-  // Customize the notification channel as you wish. This is only for a bare minimum example
-  private fun initializeNotificationChannel() {
-    if (Build.VERSION.SDK_INT >= 26) {
-      val channel = NotificationChannel(
-        notificationChannelID,
-        "Background Upload Channel",
-        NotificationManager.IMPORTANCE_LOW
-      )
-      val manager =
-        reactApplicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      manager.createNotificationChannel(channel)
-    }
 
-    val application = reactContext.applicationContext as Application
-    initialize(application, notificationChannelID, BuildConfig.DEBUG)
-  }
 }
 
-class InvalidUploadOptionException(message: String) : IllegalArgumentException(message) {}
