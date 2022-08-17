@@ -5,7 +5,6 @@ import { NativeModules, DeviceEventEmitter, Platform } from 'react-native';
 import {
   AddListener,
   ChunkInfo,
-  FileInfo,
   RawChunkInfo,
   UploadId,
   UploadOptions,
@@ -23,28 +22,6 @@ if (NativeModules.VydiaRNFileUploader) {
   NativeModule.addListener(eventPrefix + 'cancelled');
   NativeModule.addListener(eventPrefix + 'completed');
 }
-
-/*
-Gets file information for the path specified.
-Example valid path is:
-  Android: '/storage/extSdCard/DCIM/Camera/20161116_074726.mp4'
-  iOS: 'file:///var/mobile/Containers/Data/Application/3C8A0EFB-A316-45C0-A30A-761BF8CCF2F8/tmp/trim.A5F76017-14E9-4890-907E-36A045AF9436.MOV;
-
-Returns an object:
-  If the file exists: {extension: "mp4", size: "3804316", exists: true, mimeType: "video/mp4", name: "20161116_074726.mp4"}
-  If the file doesn't exist: {exists: false} and might possibly include name or extension
-
-The promise should never be rejected.
-*/
-export const getFileInfo = (path: string): Promise<FileInfo> => {
-  return NativeModule.getFileInfo(path).then((data: FileInfo) => {
-    if (data.size) {
-      // size comes back as a string on android so we convert it here.  if it's already a number this won't hurt anything
-      data.size = +data.size;
-    }
-    return data;
-  });
-};
 
 /*
 Starts uploading a file to an HTTP endpoint.
@@ -140,7 +117,7 @@ export const ios = {
   /*
   Directly check the state of a single upload task without using event listeners.
   Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
-  They're all `undefined`. You will need to either rely on the listeners or 
+  They're all `undefined`. You will need to either rely on the listeners or
   check with the API service you're using to upload.
   */
   getUploadStatus: async (
@@ -156,7 +133,6 @@ export default {
   startUpload,
   cancelUpload,
   addListener,
-  getFileInfo,
   chunkFile,
   ios,
 };

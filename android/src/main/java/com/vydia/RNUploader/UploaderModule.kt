@@ -96,37 +96,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     })
   }
 
-  /*
-  Gets file information for the path specified.  Example valid path is: /storage/extSdCard/DCIM/Camera/20161116_074726.mp4
-  Returns an object such as: {extension: "mp4", size: "3804316", exists: true, mimeType: "video/mp4", name: "20161116_074726.mp4"}
-   */
-  @ReactMethod
-  fun getFileInfo(path: String, promise: Promise) {
-    try {
-      val params = Arguments.createMap()
-      val fileInfo = File(path)
-      params.putString("name", fileInfo.name)
-      if (!fileInfo.exists() || !fileInfo.isFile) {
-        params.putBoolean("exists", false)
-      } else {
-        params.putBoolean("exists", true)
-        params.putString(
-          "size",
-          fileInfo.length().toString()
-        ) //use string form of long because there is no putLong and converting to int results in a max size of 17.2 gb, which could happen.  Javascript will need to convert it to a number
-        val extension = MimeTypeMap.getFileExtensionFromUrl(path)
-        params.putString("extension", extension)
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
-        params.putString("mimeType", mimeType)
-      }
-      promise.resolve(params)
-    } catch (exc: Exception) {
-      exc.printStackTrace()
-      Log.e(TAG, exc.message, exc)
-      promise.reject(exc)
-    }
-  }
-
   @ReactMethod
   fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int, promise: Promise) {
     try {

@@ -1,5 +1,4 @@
-import { AddListener, ChunkInfo, FileInfo, UploadId, UploadOptions } from './types';
-export declare const getFileInfo: (path: string) => Promise<FileInfo>;
+import { AddListener, ChunkInfo, UploadId, UploadOptions } from './types';
 export declare const startUpload: ({ path, ...options }: UploadOptions) => Promise<UploadId>;
 export declare const cancelUpload: (cancelUploadId: string) => Promise<boolean>;
 export declare const addListener: AddListener;
@@ -15,7 +14,6 @@ declare const _default: {
     startUpload: ({ path, ...options }: UploadOptions) => Promise<string>;
     cancelUpload: (cancelUploadId: string) => Promise<boolean>;
     addListener: AddListener;
-    getFileInfo: (path: string) => Promise<FileInfo>;
     chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
     ios: {
         getUploadStatus: (jobId: string) => Promise<{
