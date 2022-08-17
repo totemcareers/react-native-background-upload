@@ -28,7 +28,7 @@ import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
-data class DeferredUpload(val id: String, val options: ReadableMap)
+data class DeferredUpload(val id: String, val options: StartUploadOptions)
 
 class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -57,7 +57,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       initialWaitTimeSeconds = 1,
       maxWaitTimeSeconds = TimeUnit.HOURS.toSeconds(1).toInt(),
       multiplier = 2,
-      defaultMaxRetries = 2
+      defaultMaxRetries = 2 // this will be overridden by the `maxRetries` option
     )
 
     httpStack = OkHttpStack(
@@ -159,18 +159,14 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
    * Returns a promise with the string ID of the upload.
    */
   @ReactMethod
-  fun startUpload(options: ReadableMap, promise: Promise) {
+  fun startUpload(rawOptions: ReadableMap, promise: Promise) {
     try {
-      var uploadId: String? = null
-      if (options.hasKey("customUploadId"))
-        uploadId = options.getString("customUploadId")
-      if (uploadId == null)
-        uploadId = UUID.randomUUID().toString()
-
+      val uploadId = rawOptions.getString("customUploadId") ?: UUID.randomUUID().toString()
+      val options = StartUploadOptions(rawOptions)
       val started = _startUpload(uploadId, options)
       if (!started) deferredUploads.add(DeferredUpload(uploadId, options))
       promise.resolve(uploadId)
-    } catch (exc: java.lang.Exception) {
+    } catch (exc: Throwable) {
       if (exc !is InvalidUploadOptionException) {
         exc.printStackTrace()
         Log.e(TAG, exc.message, exc)
@@ -182,10 +178,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   /**
    * @return whether the upload was started
    */
-  private fun _startUpload(uploadId: String, rawOptions: ReadableMap): Boolean {
-
-    val options = StartUploadOptions(rawOptions)
-
+  private fun _startUpload(uploadId: String, options: StartUploadOptions): Boolean {
     val notificationManager =
       (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
     initializeNotificationChannel(options.notificationChannel, notificationManager)
