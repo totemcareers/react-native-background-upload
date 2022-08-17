@@ -34,6 +34,8 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
   private val TAG = "UploaderBridge"
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
+  private val connectivityManager =
+    reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
   override fun getName(): String {
     return "RNFileUploader"
@@ -77,9 +79,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
-    val connectivityManager =
-      reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
     connectivityManager.registerDefaultNetworkCallback(object : NetworkCallback() {
       override fun onAvailable(network: Network) {
         processDeferredUploads()
@@ -183,6 +182,9 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
     initializeNotificationChannel(options.notificationChannel, notificationManager)
 
+    if (!validateNetwork(options.discretionary, connectivityManager))
+      return false
+
     val request = if (options.requestType == StartUploadOptions.RequestType.RAW) {
       BinaryUploadRequest(this.reactApplicationContext, options.url)
         .setFileToUpload(options.path)
@@ -194,13 +196,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     val notification = options.notification
     if (notification != null)
       request.setNotificationConfig { _, _ -> notification }
-
-    val connectivityManager =
-      reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-    if (!validateNetwork(options.discretionary, connectivityManager))
-      return false
-
 
     options.parameters.forEach { (key, value) ->
       request.addParameter(key, value)
