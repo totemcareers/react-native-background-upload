@@ -6,13 +6,24 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.WritableNativeMap
 import net.gotev.uploadservice.data.UploadNotificationConfig
 import net.gotev.uploadservice.data.UploadNotificationStatusConfig
+import java.util.*
 
-class StartUploadOptions(options: ReadableMap) {
+data class RNUploaderId(val value: String)
+class Upload(options: ReadableMap) {
+
+  // Store data in static variables in case JS reloads
+  companion object {
+    val uploads = mutableMapOf<RNUploaderId, Upload>()
+    fun uploadByRequestId(requestId: String): Upload? {
+      return uploads.values.find { it.requestId == requestId }
+    }
+  }
 
   enum class RequestType {
     RAW, MULTIPART
   }
 
+  val id: RNUploaderId
   val url: String
   val path: String
   var method = "POST"
@@ -30,13 +41,22 @@ class StartUploadOptions(options: ReadableMap) {
   var headers: Map<String, String> = emptyMap()
     private set
 
-  // For Multipart
+  // === For Multipart ===
+
   var parameters: Map<String, String> = emptyMap()
     private set
   var field: String = ""
     private set
 
+  // === State Data ===
+
+  // whether the upload is waiting for network conditions to be valid
+  var waitingForNetworkOk = false
+  // the uploadID given to AndroidUploadService
+  var requestId:String? = null
+
   init {
+    id = RNUploaderId(options.getString("customUploadId") ?: UUID.randomUUID().toString())
     url = options.getString("url") ?: throw InvalidUploadOptionException("Missing 'url' field.")
     path = options.getString("path") ?: throw InvalidUploadOptionException("Missing 'path' field.")
     method = options.getString("method") ?: method;

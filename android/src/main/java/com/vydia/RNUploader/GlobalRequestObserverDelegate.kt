@@ -6,68 +6,70 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter
+import com.vydia.RNUploader.Upload.Companion.uploadByRequestId
+import com.vydia.RNUploader.Upload.Companion.uploads
 import net.gotev.uploadservice.data.UploadInfo
 import net.gotev.uploadservice.exceptions.UserCancelledUploadException
 import net.gotev.uploadservice.network.ServerResponse
 import net.gotev.uploadservice.observer.request.RequestObserverDelegate
 
-class GlobalRequestObserverDelegate(reactContext: ReactApplicationContext) : RequestObserverDelegate {
+class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationContext) :
+  RequestObserverDelegate {
   private val TAG = "UploadReceiver"
 
-  private var reactContext: ReactApplicationContext = reactContext
+  override fun onCompleted(context: Context, uploadInfo: UploadInfo) {}
+  override fun onCompletedWhileNotObserving() {}
 
-  override fun onCompleted(context: Context, uploadInfo: UploadInfo) {
-  }
-
-  override fun onCompletedWhileNotObserving() {
+  fun reportCancelled(uploadId: RNUploaderId) {
+    uploads.remove(uploadId)
+    sendEvent("cancelled", Arguments.createMap().apply {
+      putString("id", uploadId.value)
+    })
   }
 
   override fun onError(context: Context, uploadInfo: UploadInfo, exception: Throwable) {
-    val params = Arguments.createMap()
-    params.putString("id", uploadInfo.uploadId)
+    // if the upload cannot be found, don't do anything
+    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+    if (exception is UserCancelledUploadException) return reportCancelled(upload.id)
 
-    if (exception is UserCancelledUploadException) {
-      sendEvent("cancelled", params, context);
-      return;
-    }
-
-    // Make sure we do not try to call getMessage() on a null object
-    if (exception.message != null) {
-      params.putString("error", exception.message)
-    } else {
-      params.putString("error", "Unknown exception")
-    }
-
-    sendEvent("error", params, context)
-  }
-
-  override fun onProgress(context: Context, uploadInfo: UploadInfo) {
-    val params = Arguments.createMap()
-    params.putString("id", uploadInfo.uploadId)
-    params.putInt("progress", uploadInfo.progressPercent) //0-100
-
-    sendEvent("progress", params, context)
+    uploads.remove(upload.id)
+    sendEvent("error", Arguments.createMap().apply {
+      putString("id", upload.id.value)
+      putString("error", exception.message ?: "Unknown exception")
+    })
   }
 
   override fun onSuccess(context: Context, uploadInfo: UploadInfo, serverResponse: ServerResponse) {
-    val headers = Arguments.createMap()
-    for ((key, value) in serverResponse.headers) {
-      headers.putString(key, value)
-    }
-    val params = Arguments.createMap()
-    params.putString("id", uploadInfo.uploadId)
-    params.putInt("responseCode", serverResponse.code)
-    params.putString("responseBody", serverResponse.bodyString)
-    params.putMap("responseHeaders", headers)
-    sendEvent("completed", params, context)
+    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+
+    uploads.remove(upload.id)
+    sendEvent("completed", Arguments.createMap().apply {
+      putString("id", upload.id.value)
+      putInt("responseCode", serverResponse.code)
+      putString("responseBody", serverResponse.bodyString)
+      putMap("responseHeaders", Arguments.createMap().apply {
+        serverResponse.headers.forEach { (key, value) ->
+          putString(key, value)
+        }
+      })
+    })
+  }
+
+  override fun onProgress(context: Context, uploadInfo: UploadInfo) {
+    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+
+    sendEvent("progress", Arguments.createMap().apply {
+      putString("id", upload.id.value)
+      putInt("progress", uploadInfo.progressPercent) //0-100
+    })
   }
 
   /**
    * Sends an event to the JS module.
    */
-  private fun sendEvent(eventName: String, params: WritableMap?, context: Context) {
+  private fun sendEvent(eventName: String, params: WritableMap?) {
     // Right after JS reloads, react instance might not be available yet
-    if(!reactContext.hasActiveCatalystInstance()) return
+    if (!reactContext.hasActiveCatalystInstance()) return
 
     try {
       val jsModule = reactContext.getJSModule(RCTDeviceEventEmitter::class.java)

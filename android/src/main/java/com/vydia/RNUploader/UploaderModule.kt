@@ -11,13 +11,12 @@ import android.net.NetworkCapabilities
 import android.util.Log
 import android.webkit.MimeTypeMap
 import com.facebook.react.bridge.*
+import com.vydia.RNUploader.Upload.Companion.uploads
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
 import net.gotev.uploadservice.UploadServiceConfig.threadPool
 import net.gotev.uploadservice.data.RetryPolicyConfig
-import net.gotev.uploadservice.data.UploadInfo
-import net.gotev.uploadservice.exceptions.UserCancelledUploadException
 import net.gotev.uploadservice.observer.request.GlobalRequestObserver
 import net.gotev.uploadservice.okhttp.OkHttpStack
 import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
@@ -28,7 +27,6 @@ import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
-data class DeferredUpload(val id: String, val options: StartUploadOptions)
 
 class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -41,10 +39,6 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     return "RNFileUploader"
   }
 
-  // Store data in static variables in case JS reloads
-  companion object {
-    val deferredUploads = mutableListOf<DeferredUpload>()
-  }
 
   init {
     // Initialize everything here so listeners can continue to listen
@@ -81,21 +75,21 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     // == register network listener ==
     connectivityManager.registerDefaultNetworkCallback(object : NetworkCallback() {
       override fun onAvailable(network: Network) {
-        processDeferredUploads()
+        handleNetworkConditionsChange()
       }
 
       override fun onCapabilitiesChanged(
         network: Network, networkCapabilities: NetworkCapabilities
       ) {
-        processDeferredUploads()
+        handleNetworkConditionsChange()
       }
 
       override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-        processDeferredUploads()
+        handleNetworkConditionsChange()
       }
 
       override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-        processDeferredUploads()
+        handleNetworkConditionsChange()
       }
     })
   }
@@ -140,16 +134,33 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun processDeferredUploads() {
-    val uploads = deferredUploads.size
-    Log.d(TAG, "Processing $uploads deferred uploads")
+  private fun handleNetworkConditionsChange() {
+    val count = uploads.size
+    Log.d(TAG, "Processing $count deferred uploads")
 
-    val startedUploads = mutableListOf<DeferredUpload>()
-    deferredUploads.forEach {
-      if (_startUpload(it.id, it.options))
-        startedUploads.add(it)
+    uploads.values.forEach { upload ->
+      val networkOk = validateNetwork(upload.discretionary, connectivityManager)
+      // If upload in progress, check if network conditions still apply.
+      // If network is no longer valid, stop the upload.
+      // This is because, for example, if the user prefers Wifi,
+      // we don't want it to continue uploading and eating up the user's data plan
+      // while they're on a Cellular network
+      if (!upload.waitingForNetworkOk && !networkOk) {
+        upload.waitingForNetworkOk = true
+        upload.requestId?.let {
+          // removing the requestId to silence the event reporting
+          upload.requestId = null
+          UploadService.stopUpload(it)
+        }
+      }
+
+      // If upload is waiting for network ok, check if network conditions still apply
+      // if network has become valid, start the upload
+      if (upload.waitingForNetworkOk && networkOk) {
+        upload.waitingForNetworkOk = false
+        _startUpload(upload)
+      }
     }
-    deferredUploads.removeAll(startedUploads)
   }
 
 
@@ -160,11 +171,24 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun startUpload(rawOptions: ReadableMap, promise: Promise) {
     try {
-      val uploadId = rawOptions.getString("customUploadId") ?: UUID.randomUUID().toString()
-      val options = StartUploadOptions(rawOptions)
-      val started = _startUpload(uploadId, options)
-      if (!started) deferredUploads.add(DeferredUpload(uploadId, options))
-      promise.resolve(uploadId)
+      val new = Upload(rawOptions)
+
+      // if there's an existing upload, cancel its current request
+      uploads[new.id]?.let { old ->
+        old.requestId?.let {
+          // removing the requestId to silence the event reporting
+          old.requestId = null
+          UploadService.stopUpload(it)
+        }
+      }
+
+      if (!validateNetwork(new.discretionary, connectivityManager))
+        new.waitingForNetworkOk = true
+      else
+        _startUpload(new)
+
+      uploads[new.id] = new
+      promise.resolve(new.id.toString())
     } catch (exc: Throwable) {
       if (exc !is InvalidUploadOptionException) {
         exc.printStackTrace()
@@ -177,37 +201,37 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   /**
    * @return whether the upload was started
    */
-  private fun _startUpload(uploadId: String, options: StartUploadOptions): Boolean {
+  private fun _startUpload(upload: Upload): Boolean {
     val notificationManager =
       (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-    initializeNotificationChannel(options.notificationChannel, notificationManager)
+    initializeNotificationChannel(upload.notificationChannel, notificationManager)
 
-    if (!validateNetwork(options.discretionary, connectivityManager))
-      return false
-
-    val request = if (options.requestType == StartUploadOptions.RequestType.RAW) {
-      BinaryUploadRequest(this.reactApplicationContext, options.url)
-        .setFileToUpload(options.path)
+    val request = if (upload.requestType == Upload.RequestType.RAW) {
+      BinaryUploadRequest(this.reactApplicationContext, upload.url)
+        .setFileToUpload(upload.path)
     } else {
-      MultipartUploadRequest(this.reactApplicationContext, options.url)
-        .addFileToUpload(options.path, options.field)
+      MultipartUploadRequest(this.reactApplicationContext, upload.url)
+        .addFileToUpload(upload.path, upload.field)
     }
 
-    val notification = options.notification
-    if (notification != null)
-      request.setNotificationConfig { _, _ -> notification }
+    upload.notification.let {
+      if (it != null) request.setNotificationConfig { _, _ -> it }
+    }
 
-    options.parameters.forEach { (key, value) ->
+    upload.parameters.forEach { (key, value) ->
       request.addParameter(key, value)
     }
-    options.headers.forEach { (key, value) ->
+    upload.headers.forEach { (key, value) ->
       request.addHeader(key, value)
     }
 
+    val requestId = UUID.randomUUID().toString()
+    upload.requestId = requestId
+
     request
-      .setMethod(options.method)
-      .setMaxRetries(options.maxRetries)
-      .setUploadID(uploadId)
+      .setMethod(upload.method)
+      .setMaxRetries(upload.maxRetries)
+      .setUploadID(requestId)
       .startUpload()
 
     return true
@@ -220,30 +244,18 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
    * Event "cancelled" will be fired when upload is cancelled.
    */
   @ReactMethod
-  fun cancelUpload(cancelUploadId: String?, promise: Promise) {
-    if (cancelUploadId !is String) {
-      promise.reject(InvalidUploadOptionException("Upload ID must be a string"))
-      return
-    }
-
-    // look in the deferredUploads list first
-    if (deferredUploads.removeIf { it.id == cancelUploadId }) {
-      promise.resolve(true)
-      // report error for consistency sake
-      uploadEventListener.onError(
-        reactContext,
-        UploadInfo(cancelUploadId),
-        UserCancelledUploadException()
-      )
-      return
-    }
-
-    // if it's not in the deferredUploads, it must have been started,
-    // so we call stopUpload()
+  fun cancelUpload(uploadId: String, promise: Promise) {
     try {
-      UploadService.stopUpload(cancelUploadId)
+      uploads[RNUploaderId(uploadId)]?.let { upload ->
+        upload.requestId.let {
+          if (it == null)
+            uploadEventListener.reportCancelled(upload.id)
+          else
+            UploadService.stopUpload(it)
+        }
+      }
       promise.resolve(true)
-    } catch (exc: java.lang.Exception) {
+    } catch (exc: Throwable) {
       exc.printStackTrace()
       Log.e(TAG, exc.message, exc)
       promise.reject(exc)
