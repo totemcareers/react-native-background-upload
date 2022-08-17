@@ -152,7 +152,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         upload.requestId?.let {
           // removing the requestId to silence the event reporting
           upload.requestId = null
-          UploadService.stopUpload(it)
+          UploadService.stopUpload(it.value)
         }
       }
 
@@ -180,7 +180,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         old.requestId?.let {
           // removing the requestId to silence the event reporting
           old.requestId = null
-          UploadService.stopUpload(it)
+          UploadService.stopUpload(it.value)
         }
       }
 
@@ -228,7 +228,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
 
     val requestId = UUID.randomUUID().toString()
-    upload.requestId = requestId
+    upload.requestId = UploadServiceId(requestId)
 
     request
       .setMethod(upload.method)
@@ -248,12 +248,12 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun cancelUpload(uploadId: String, promise: Promise) {
     try {
-      uploads[RNUploaderId(uploadId)]?.let { upload ->
+      uploads[RNUploadId(uploadId)]?.let { upload ->
         upload.requestId.let {
           if (it == null)
             uploadEventListener.reportCancelled(upload.id)
           else
-            UploadService.stopUpload(it)
+            UploadService.stopUpload(it.value)
         }
       }
       promise.resolve(true)

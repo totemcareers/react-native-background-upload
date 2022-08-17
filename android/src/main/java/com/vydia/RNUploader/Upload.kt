@@ -8,13 +8,14 @@ import net.gotev.uploadservice.data.UploadNotificationConfig
 import net.gotev.uploadservice.data.UploadNotificationStatusConfig
 import java.util.*
 
-data class RNUploaderId(val value: String)
+data class RNUploadId(val value: String)
+data class UploadServiceId(val value: String)
 class Upload(options: ReadableMap) {
 
   // Store data in static variables in case JS reloads
   companion object {
-    val uploads = mutableMapOf<RNUploaderId, Upload>()
-    fun uploadByRequestId(requestId: String): Upload? {
+    val uploads = mutableMapOf<RNUploadId, Upload>()
+    fun uploadByRequestId(requestId: UploadServiceId): Upload? {
       return uploads.values.find { it.requestId == requestId }
     }
   }
@@ -23,7 +24,7 @@ class Upload(options: ReadableMap) {
     RAW, MULTIPART
   }
 
-  val id: RNUploaderId
+  val id: RNUploadId
   val url: String
   val path: String
   var method = "POST"
@@ -52,11 +53,12 @@ class Upload(options: ReadableMap) {
 
   // whether the upload is waiting for network conditions to be valid
   var waitingForNetworkOk = false
+
   // the uploadID given to AndroidUploadService
-  var requestId:String? = null
+  var requestId: UploadServiceId? = null
 
   init {
-    id = RNUploaderId(options.getString("customUploadId") ?: UUID.randomUUID().toString())
+    id = RNUploadId(options.getString("customUploadId") ?: UUID.randomUUID().toString())
     url = options.getString("url") ?: throw InvalidUploadOptionException("Missing 'url' field.")
     path = options.getString("path") ?: throw InvalidUploadOptionException("Missing 'path' field.")
     method = options.getString("method") ?: method;

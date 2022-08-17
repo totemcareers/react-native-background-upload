@@ -20,7 +20,7 @@ class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationCo
   override fun onCompleted(context: Context, uploadInfo: UploadInfo) {}
   override fun onCompletedWhileNotObserving() {}
 
-  fun reportCancelled(uploadId: RNUploaderId) {
+  fun reportCancelled(uploadId: RNUploadId) {
     uploads.remove(uploadId)
     sendEvent("cancelled", Arguments.createMap().apply {
       putString("id", uploadId.value)
@@ -29,7 +29,7 @@ class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationCo
 
   override fun onError(context: Context, uploadInfo: UploadInfo, exception: Throwable) {
     // if the upload cannot be found, don't do anything
-    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+    val upload = uploadByRequestId(UploadServiceId(uploadInfo.uploadId)) ?: return
     if (exception is UserCancelledUploadException) return reportCancelled(upload.id)
 
     uploads.remove(upload.id)
@@ -40,7 +40,7 @@ class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationCo
   }
 
   override fun onSuccess(context: Context, uploadInfo: UploadInfo, serverResponse: ServerResponse) {
-    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+    val upload = uploadByRequestId(UploadServiceId(uploadInfo.uploadId)) ?: return
 
     uploads.remove(upload.id)
     sendEvent("completed", Arguments.createMap().apply {
@@ -56,7 +56,7 @@ class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationCo
   }
 
   override fun onProgress(context: Context, uploadInfo: UploadInfo) {
-    val upload = uploadByRequestId(uploadInfo.uploadId) ?: return
+    val upload = uploadByRequestId(UploadServiceId(uploadInfo.uploadId)) ?: return
 
     sendEvent("progress", Arguments.createMap().apply {
       putString("id", upload.id.value)
