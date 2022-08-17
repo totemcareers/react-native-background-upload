@@ -184,10 +184,10 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         }
       }
 
-      if (!validateNetwork(new.discretionary, connectivityManager))
-        new.waitingForNetworkOk = true
-      else
+      if (validateNetwork(new.discretionary, connectivityManager))
         _startUpload(new)
+      else
+        new.waitingForNetworkOk = true
 
       uploads[new.id] = new
       promise.resolve(new.id.toString())
@@ -249,12 +249,11 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   fun cancelUpload(uploadId: String, promise: Promise) {
     try {
       uploads[RNUploadId(uploadId)]?.let { upload ->
-        upload.requestId.let {
-          if (it == null)
-            uploadEventListener.reportCancelled(upload.id)
-          else
-            UploadService.stopUpload(it.value)
-        }
+        val requestId = upload.requestId
+        if (requestId == null)
+          uploadEventListener.reportCancelled(upload.id)
+        else
+          UploadService.stopUpload(requestId.value)
       }
       promise.resolve(true)
     } catch (exc: Throwable) {
