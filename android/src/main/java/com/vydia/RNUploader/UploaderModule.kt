@@ -49,6 +49,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     pool.corePoolSize = 1
     pool.maximumPoolSize = 1
 
+    // == set retry policy ==
     retryPolicy = RetryPolicyConfig(
       initialWaitTimeSeconds = 1,
       maxWaitTimeSeconds = TimeUnit.HOURS.toSeconds(1).toInt(),
@@ -56,6 +57,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       defaultMaxRetries = 2 // this will be overridden by the `maxRetries` option
     )
 
+    // == set http stack ==
     httpStack = OkHttpStack(
       OkHttpClient().newBuilder()
         .followRedirects(true)
