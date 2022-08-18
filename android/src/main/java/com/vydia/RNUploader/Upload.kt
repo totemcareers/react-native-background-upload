@@ -14,6 +14,7 @@ class Upload(options: ReadableMap) {
 
   // Store data in static variables in case JS reloads
   companion object {
+    val defaultNotificationChannel = "BackgroundUploadChannel"
     val uploads = mutableMapOf<RNUploadId, Upload>()
     fun uploadByRequestId(requestId: UploadServiceId): Upload? {
       return uploads.values.find { it.requestId == requestId }
@@ -31,7 +32,7 @@ class Upload(options: ReadableMap) {
     private set
   var requestType = RequestType.RAW
     private set
-  var notificationChannel = "BackgroundUploadChannel"
+  var notificationChannel = defaultNotificationChannel
     private set
   var discretionary = false
     private set

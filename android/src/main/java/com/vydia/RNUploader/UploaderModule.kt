@@ -9,10 +9,12 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.util.Log
-import android.webkit.MimeTypeMap
+import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
+import com.vydia.RNUploader.Upload.Companion.defaultNotificationChannel
 import com.vydia.RNUploader.Upload.Companion.uploads
 import net.gotev.uploadservice.UploadService
+import net.gotev.uploadservice.UploadServiceConfig.initialize
 import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
 import net.gotev.uploadservice.UploadServiceConfig.threadPool
@@ -22,7 +24,6 @@ import net.gotev.uploadservice.okhttp.OkHttpStack
 import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
 import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
 import okhttp3.OkHttpClient
-import java.io.File
 import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -70,8 +71,12 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         .build()
     )
 
-    // == register upload listener ==
     val application = reactContext.applicationContext as Application
+
+    // == initialize UploadService ==
+    initialize(application, defaultNotificationChannel, BuildConfig.DEBUG)
+
+    // == register upload listener ==
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
