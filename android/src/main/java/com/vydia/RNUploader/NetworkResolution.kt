@@ -73,7 +73,10 @@ fun observeBestNetwork(
     connectivityManager.unregisterNetworkCallback(callback)
   }
 
-}.debounce(1000)
+}
+  // we don't want to switch back and forth too quickly between networks
+  // since it will massively disrupt the uploader
+  .debounce(1000)
 
 
 private fun computeBestNetwork(

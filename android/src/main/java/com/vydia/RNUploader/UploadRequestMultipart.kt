@@ -94,7 +94,7 @@ class UploadRequestMultipart(
 class MultipartUploadTask : HttpUploadTask() {
 
   companion object {
-    private const val BOUNDARY_SIGNATURE = "-------UploadService${BuildConfig.VERSION_NAME}-"
+    private const val BOUNDARY_SIGNATURE = "-------RNUploader-------"
     private const val NEW_LINE = "\r\n"
     private const val TWO_HYPHENS = "--"
   }
