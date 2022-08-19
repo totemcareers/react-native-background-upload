@@ -165,7 +165,8 @@ class MultipartUploadTask : HttpUploadTask() {
   override fun upload(httpStack: HttpStack) {
     val discretionary = params.additionalParameters.getBoolean(KEY_DISCRETIONARY)
     val stack =
-      if (discretionary) UploaderModule.discretionaryHttpStack else UploadServiceConfig.httpStack
+      if (discretionary) UploaderModule.discretionaryHttpStack
+      else UploaderModule.httpStack
     if (stack != null) super.upload(stack)
   }
 }

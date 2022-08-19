@@ -1,10 +1,8 @@
 package com.vydia.RNUploader
 
 import android.content.Context
-import com.vydia.RNUploader.UploaderModule.Companion.discretionaryHttpStack
 import net.gotev.uploadservice.HttpUploadRequest
 import net.gotev.uploadservice.HttpUploadTask
-import net.gotev.uploadservice.UploadServiceConfig
 import net.gotev.uploadservice.UploadTask
 import net.gotev.uploadservice.data.UploadFile
 import net.gotev.uploadservice.extensions.addHeader
@@ -98,7 +96,9 @@ class BinaryUploadTask : HttpUploadTask() {
 
   override fun upload(httpStack: HttpStack) {
     val discretionary = params.additionalParameters.getBoolean(KEY_DISCRETIONARY)
-    val stack = if (discretionary) discretionaryHttpStack else UploadServiceConfig.httpStack
+    val stack =
+      if (discretionary) UploaderModule.discretionaryHttpStack
+      else UploaderModule.httpStack
     if (stack != null) super.upload(stack)
   }
 
