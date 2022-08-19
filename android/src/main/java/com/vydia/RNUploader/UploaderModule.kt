@@ -4,26 +4,21 @@ import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.ConnectivityManager.NetworkCallback
-import android.net.LinkProperties
-import android.net.Network
-import android.net.NetworkCapabilities
 import android.util.Log
 import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
 import com.vydia.RNUploader.Upload.Companion.defaultNotificationChannel
 import com.vydia.RNUploader.Upload.Companion.uploads
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.initialize
-import net.gotev.uploadservice.UploadServiceConfig.httpStack
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
 import net.gotev.uploadservice.UploadServiceConfig.threadPool
 import net.gotev.uploadservice.data.RetryPolicyConfig
 import net.gotev.uploadservice.observer.request.GlobalRequestObserver
 import net.gotev.uploadservice.okhttp.OkHttpStack
-import net.gotev.uploadservice.protocols.binary.BinaryUploadRequest
 import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
-import okhttp3.OkHttpClient
 import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -35,6 +30,11 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
   private val connectivityManager =
     reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+  companion object {
+    var httpStack: OkHttpStack? = null
+    var discretionaryHttpStack: OkHttpStack? = null
+  }
 
   override fun getName(): String {
     return "RNFileUploader"
@@ -52,24 +52,14 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
 
     // == set retry policy ==
     retryPolicy = RetryPolicyConfig(
-      initialWaitTimeSeconds = 1,
+      // higher wait time to make time to wait for network change
+      // and get checked if the request needs to be cancelled instead of emitting errors
+      initialWaitTimeSeconds = 20,
       maxWaitTimeSeconds = TimeUnit.HOURS.toSeconds(1).toInt(),
       multiplier = 2,
       defaultMaxRetries = 2 // this will be overridden by the `maxRetries` option
     )
 
-    // == set http stack ==
-    httpStack = OkHttpStack(
-      OkHttpClient().newBuilder()
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .retryOnConnectionFailure(true)
-        .connectTimeout(15L, TimeUnit.SECONDS)
-        .writeTimeout(30L, TimeUnit.SECONDS)
-        .readTimeout(30L, TimeUnit.SECONDS)
-        .cache(null)
-        .build()
-    )
 
     val application = reactContext.applicationContext as Application
 
@@ -80,25 +70,23 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
-    connectivityManager.registerDefaultNetworkCallback(object : NetworkCallback() {
-      override fun onAvailable(network: Network) {
-        handleNetworkConditionsChange()
+    observeBestNetwork(connectivityManager, discretionary = false)
+      .onEach {
+        httpStack = buildHttpStack(it)
+        handleNetworkChange(discretionary = false)
+      }
+      .flowOn(Dispatchers.IO).catch {
+        Log.e(TAG, "error selecting best network", it)
       }
 
-      override fun onCapabilitiesChanged(
-        network: Network, networkCapabilities: NetworkCapabilities
-      ) {
-        handleNetworkConditionsChange()
+    observeBestNetwork(connectivityManager, discretionary = true)
+      .onEach {
+        discretionaryHttpStack = buildHttpStack(it)
+        handleNetworkChange(discretionary = true)
       }
-
-      override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-        handleNetworkConditionsChange()
+      .flowOn(Dispatchers.IO).catch {
+        Log.e(TAG, "error selecting best discretionary network", it)
       }
-
-      override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-        handleNetworkConditionsChange()
-      }
-    })
   }
 
   @ReactMethod
@@ -110,33 +98,19 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun handleNetworkConditionsChange() {
+  private fun handleNetworkChange(discretionary: Boolean) {
     val count = uploads.size
     Log.d(TAG, "Processing $count deferred uploads")
 
-    uploads.values.forEach { upload ->
-      val networkOk = validateNetwork(upload.discretionary, connectivityManager)
-      // If upload in progress, check if network conditions still apply.
-      // If network is no longer valid, stop the upload.
-      // This is because, for example, if the user prefers Wifi,
-      // we don't want it to continue uploading and eating up the user's data plan
-      // while they're on a Cellular network
-      if (!upload.waitingForNetworkOk && !networkOk) {
-        upload.waitingForNetworkOk = true
-        upload.requestId?.let {
-          // removing the requestId to silence the event reporting
-          upload.requestId = null
-          UploadService.stopUpload(it.value)
-        }
+    uploads.values
+      .filter { it.discretionary == discretionary }
+      .forEach {
+        // stop the upload because we're switching network
+        // setting requestId to null to prevent cancellation event reporting
+        it.requestId = null
+        UploadService.stopUpload(it.id.value)
+        maybeStartUpload(it)
       }
-
-      // If upload is waiting for network ok, check if network conditions still apply
-      // if network has become valid, start the upload
-      if (upload.waitingForNetworkOk && networkOk) {
-        upload.waitingForNetworkOk = false
-        _startUpload(upload)
-      }
-    }
   }
 
 
@@ -158,10 +132,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         }
       }
 
-      if (validateNetwork(new.discretionary, connectivityManager))
-        _startUpload(new)
-      else
-        new.waitingForNetworkOk = true
+      maybeStartUpload(new)
 
       uploads[new.id] = new
       promise.resolve(new.id.toString())
@@ -177,40 +148,34 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   /**
    * @return whether the upload was started
    */
-  private fun _startUpload(upload: Upload): Boolean {
+  private fun maybeStartUpload(upload: Upload) {
     val notificationManager =
       (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
     initializeNotificationChannel(upload.notificationChannel, notificationManager)
 
-    val request = if (upload.requestType == Upload.RequestType.RAW) {
-      BinaryUploadRequest(this.reactApplicationContext, upload.url)
-        .setFileToUpload(upload.path)
-    } else {
-      MultipartUploadRequest(this.reactApplicationContext, upload.url)
-        .addFileToUpload(upload.path, upload.field)
-    }
-
-    upload.notification.let {
-      if (it != null) request.setNotificationConfig { _, _ -> it }
-    }
-
-    upload.parameters.forEach { (key, value) ->
-      request.addParameter(key, value)
-    }
-    upload.headers.forEach { (key, value) ->
-      request.addHeader(key, value)
-    }
-
     val requestId = UUID.randomUUID().toString()
+
+    val request = if (upload.requestType == Upload.RequestType.RAW) {
+      UploadRequestBinary(reactContext, upload.url, upload.discretionary).apply {
+        setFileToUpload(upload.path)
+      }
+    } else {
+      UploadRequestMultipart(reactContext, upload.url, upload.discretionary).apply {
+        addFileToUpload(upload.path, upload.field)
+        upload.parameters.forEach { (key, value) -> addParameter(key, value) }
+      }
+    }
+
+    request.apply {
+      setMethod(upload.method)
+      setMaxRetries(upload.maxRetries)
+      setUploadID(requestId)
+      upload.notification.let { if (it != null) setNotificationConfig { _, _ -> it } }
+      upload.headers.forEach { (key, value) -> addHeader(key, value) }
+      startUpload()
+    }
+
     upload.requestId = UploadServiceId(requestId)
-
-    request
-      .setMethod(upload.method)
-      .setMaxRetries(upload.maxRetries)
-      .setUploadID(requestId)
-      .startUpload()
-
-    return true
   }
 
 

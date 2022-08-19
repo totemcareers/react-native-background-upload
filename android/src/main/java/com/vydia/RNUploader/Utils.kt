@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
@@ -14,41 +15,27 @@ import com.facebook.react.bridge.WritableArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import net.gotev.uploadservice.okhttp.OkHttpStack
+import okhttp3.OkHttpClient
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
+import java.util.concurrent.TimeUnit
 
-
-/*
- * Validate network connectivity
- * Inspired by react-native-community/netinfo
- */
-fun validateNetwork(discretionary: Boolean, connectivityManager: ConnectivityManager): Boolean {
-  // TODO check if this picks Cellular if Wifi isn't internet-reachable
-  val network = connectivityManager.activeNetwork
-  val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-
-  // Get the connection type
-  if (discretionary && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
-    return false
-
-  // This may return null per API docs, and is deprecated, but for older APIs (< VERSION_CODES.P)
-  // we need it to test for suspended internet
-  val networkInfo = connectivityManager.getNetworkInfo(network)
-
-  // Check to see if the network is temporarily unavailable or if airplane mode is toggled on
-  var isInternetSuspended = false
-  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-    isInternetSuspended =
-      !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
-  } else if (networkInfo != null) {
-    isInternetSuspended = networkInfo.detailedState != NetworkInfo.DetailedState.CONNECTED
-  }
-
-  if (isInternetSuspended) return false
-  if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
-  if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return false
-
-  return true
+fun buildHttpStack(network: Network?): OkHttpStack? {
+  if(network == null) return null
+  return OkHttpStack(
+    OkHttpClient().newBuilder().run {
+      followRedirects(true)
+      followSslRedirects(true)
+      retryOnConnectionFailure(true)
+      connectTimeout(15L, TimeUnit.SECONDS)
+      writeTimeout(30L, TimeUnit.SECONDS)
+      readTimeout(30L, TimeUnit.SECONDS)
+      cache(null)
+      socketFactory(network.socketFactory)
+      build()
+    }
+  )
 }
 
 fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int): ReadableArray {

@@ -21,9 +21,7 @@ class Upload(options: ReadableMap) {
     }
   }
 
-  enum class RequestType {
-    RAW, MULTIPART
-  }
+  enum class RequestType { RAW, MULTIPART }
 
   val id: RNUploadId
   val url: String
@@ -52,9 +50,6 @@ class Upload(options: ReadableMap) {
 
   // === State Data ===
 
-  // whether the upload is waiting for network conditions to be valid
-  var waitingForNetworkOk = false
-
   // the uploadID given to AndroidUploadService
   var requestId: UploadServiceId? = null
 
@@ -68,7 +63,7 @@ class Upload(options: ReadableMap) {
       val requestType =
         options.getString("type") ?: throw InvalidUploadOptionException("type must be string.")
 
-      if (requestType == "raw" && requestType != "multipart")
+      if (requestType != "raw" && requestType != "multipart")
         throw InvalidUploadOptionException("type should be string: raw or multipart.")
 
       this.requestType = RequestType.valueOf(requestType.uppercase())
