@@ -10,12 +10,6 @@ import com.facebook.react.bridge.*
 import com.vydia.RNUploader.Upload.Companion.defaultNotificationChannel
 import com.vydia.RNUploader.Upload.Companion.uploads
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.initialize
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
@@ -75,25 +69,14 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
+    observeBestNetwork(connectivityManager, false) {
+      httpStack = buildHttpStack(it)
+      handleNetworkChange(false)
+    }
 
-    GlobalScope.launch(Dispatchers.IO) {
-      observeBestNetwork(connectivityManager, discretionary = false)
-        .onEach {
-          httpStack = buildHttpStack(it)
-          handleNetworkChange(discretionary = false)
-          Log.i(TAG, "network change")
-        }
-        .catch { Log.e(TAG, "error selecting best network", it) }
-        .collect()
-
-      observeBestNetwork(connectivityManager, discretionary = true)
-        .onEach {
-          discretionaryHttpStack = buildHttpStack(it)
-          handleNetworkChange(discretionary = true)
-          Log.i(TAG, "discretionary network change")
-        }
-        .catch { Log.e(TAG, "error selecting best discretionary network", it) }
-        .collect()
+    observeBestNetwork(connectivityManager, true) {
+      discretionaryHttpStack = buildHttpStack(it)
+      handleNetworkChange(true)
     }
   }
 
@@ -108,7 +91,9 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
 
   private fun handleNetworkChange(discretionary: Boolean) {
     val count = uploads.size
-    Log.d(TAG, "Processing $count deferred uploads")
+    val httpStack = if(discretionary) discretionaryHttpStack else httpStack
+    Log.d(TAG, "Processing $count deferred uploads. Discretionary: $discretionary")
+    Log.d(TAG, "HttpStack available? ${httpStack != null}")
 
     uploads.values
       .filter { it.discretionary == discretionary }

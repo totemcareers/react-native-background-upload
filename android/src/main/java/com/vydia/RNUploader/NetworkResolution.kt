@@ -2,88 +2,113 @@ package com.vydia.RNUploader
 
 import android.net.*
 import android.os.Build
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.trySendBlocking
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.debounce
 
 fun observeBestNetwork(
   connectivityManager: ConnectivityManager,
   discretionary: Boolean,
-) = callbackFlow<Network?> {
-  var currentBestNetwork: Network? = null
+  onChange: (network: Network?) -> Unit
+) {
+  var wifi: Network? = null
+  var cellular: Network? = null
+  var bestNetwork: Network? = null
 
-  val request = NetworkRequest.Builder().run {
+  val wifiRequest = NetworkRequest.Builder().run {
     addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    if (discretionary) {
-      addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+    addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+    if (discretionary)
       addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-    } else {
-      addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-    }
     build()
   }
 
-  fun setBestNetwork(network: Network?) {
-    val network = network ?: connectivityManager.activeNetwork
-    if (network == currentBestNetwork) return
-    currentBestNetwork = network
-    trySendBlocking(network)
+  val cellularRequest = NetworkRequest.Builder().run {
+    addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+    build()
   }
 
-  val callback = object :
-    ConnectivityManager.NetworkCallback() {
+  fun setBestNetwork() {
+    var network = wifi
+    if (!discretionary && cellular != null && wifi == null)
+      network = cellular
+
+    if (network == bestNetwork) return
+    bestNetwork = network
+    onChange(bestNetwork)
+  }
+
+  observeNetwork(connectivityManager, wifiRequest) {
+    wifi = it
+    setBestNetwork()
+  }
+
+  if (!discretionary)
+    observeNetwork(connectivityManager, cellularRequest) {
+      cellular = it
+      setBestNetwork()
+    }
+}
+
+private fun observeNetwork(
+  connectivityManager: ConnectivityManager,
+  request: NetworkRequest,
+  onChange: (network: Network?) -> Unit
+) {
+  var current: Network? = null
+  fun setNetwork(network: Network?) {
+    val new = network.let {
+      if (it == null) null
+      else if (validateNetwork(it, connectivityManager)) network
+      else null
+    }
+
+    if (new == current) return
+    current = new
+    onChange(new)
+  }
+
+  // using `requestNetwork` as it allows keeping cellular networks available when wifi is connected
+  connectivityManager.requestNetwork(request, object : ConnectivityManager.NetworkCallback() {
     override fun onAvailable(network: Network) {
-      setBestNetwork(network)
+      setNetwork(network)
     }
 
     override fun onLosing(network: Network, maxMsToLive: Int) {
-      setBestNetwork((network))
+      setNetwork(null)
     }
 
     override fun onLost(network: Network) {
-      setBestNetwork((network))
+      setNetwork(null)
     }
 
     override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-      setBestNetwork((network))
+      if (blocked) setNetwork(null) else setNetwork(network)
     }
 
-    override fun onCapabilitiesChanged(
-      network: Network,
-      networkCapabilities: NetworkCapabilities
-    ) {
-      setBestNetwork(network)
+    override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+      setNetwork(network)
     }
-  }
-
-  connectivityManager.requestNetwork(request, callback)
-
-  awaitClose {
-    connectivityManager.unregisterNetworkCallback(callback)
-  }
-
+  })
 }
-  // we don't want to switch back and forth too quickly between networks
-  // since it will massively disrupt the uploader
-  .debounce(1000)
 
 
-//addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-//addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-//if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-//  addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
-//}
-
-private fun checkSuspendedStatusWithLegacyAPI(
+private fun validateNetwork(
   network: Network,
   connectivityManager: ConnectivityManager
 ): Boolean {
-  // if API level is larger than P, we already have NET_CAPABILITY_NOT_SUSPENDED above
-  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
-  // From @react-native-community/net-info
-  // This may return null per API docs, and is deprecated, but for older APIs (< VERSION_CODES.P)
-  // we need it to test for suspended internet
-  val networkInfo = connectivityManager.getNetworkInfo(network) ?: return false
-  return networkInfo.detailedState != NetworkInfo.DetailedState.CONNECTED
+  val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+  if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return false
+  if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)) return false
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+    if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)) return false
+  } else {
+    // From @react-native-community/net-info
+    // This may return null per API docs, and is deprecated, but for older APIs (< VERSION_CODES.P)
+    // we need it to test for suspended internet
+    val networkInfo = connectivityManager.getNetworkInfo(network) ?: return false
+    if (networkInfo.detailedState != NetworkInfo.DetailedState.CONNECTED) return false
+  }
+
+
+  return true
 }
+

@@ -99,7 +99,9 @@ class BinaryUploadTask : HttpUploadTask() {
     val stack =
       if (discretionary) UploaderModule.discretionaryHttpStack
       else UploaderModule.httpStack
-    if (stack != null) super.upload(stack)
+    // throw error to kick off the retry mechanism
+    if (stack == null) throw Error("No available httpStack. Discretionary: $discretionary")
+    super.upload(stack)
   }
 
   override fun onWriteRequestBody(bodyWriter: BodyWriter) {
