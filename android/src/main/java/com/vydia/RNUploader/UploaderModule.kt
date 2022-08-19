@@ -9,8 +9,13 @@ import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
 import com.vydia.RNUploader.Upload.Companion.defaultNotificationChannel
 import com.vydia.RNUploader.Upload.Companion.uploads
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.initialize
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
@@ -18,20 +23,20 @@ import net.gotev.uploadservice.UploadServiceConfig.threadPool
 import net.gotev.uploadservice.data.RetryPolicyConfig
 import net.gotev.uploadservice.observer.request.GlobalRequestObserver
 import net.gotev.uploadservice.okhttp.OkHttpStack
-import net.gotev.uploadservice.protocols.multipart.MultipartUploadRequest
 import java.util.*
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 
+@OptIn(DelicateCoroutinesApi::class)
 class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
-  private val TAG = "UploaderBridge"
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
   private val connectivityManager =
     reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
   companion object {
+    val TAG = "UploaderBridge"
     var httpStack: OkHttpStack? = null
     var discretionaryHttpStack: OkHttpStack? = null
   }
@@ -70,29 +75,32 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
-    observeBestNetwork(connectivityManager, discretionary = false)
-      .onEach {
-        httpStack = buildHttpStack(it)
-        handleNetworkChange(discretionary = false)
-      }
-      .flowOn(Dispatchers.IO).catch {
-        Log.e(TAG, "error selecting best network", it)
-      }
 
-    observeBestNetwork(connectivityManager, discretionary = true)
-      .onEach {
-        discretionaryHttpStack = buildHttpStack(it)
-        handleNetworkChange(discretionary = true)
-      }
-      .flowOn(Dispatchers.IO).catch {
-        Log.e(TAG, "error selecting best discretionary network", it)
-      }
+    GlobalScope.launch(Dispatchers.IO) {
+      observeBestNetwork(connectivityManager, discretionary = false)
+        .onEach {
+          httpStack = buildHttpStack(it)
+          handleNetworkChange(discretionary = false)
+          Log.i(TAG, "network change")
+        }
+        .catch { Log.e(TAG, "error selecting best network", it) }
+        .collect()
+
+      observeBestNetwork(connectivityManager, discretionary = true)
+        .onEach {
+          discretionaryHttpStack = buildHttpStack(it)
+          handleNetworkChange(discretionary = true)
+          Log.i(TAG, "discretionary network change")
+        }
+        .catch { Log.e(TAG, "error selecting best discretionary network", it) }
+        .collect()
+    }
   }
 
   @ReactMethod
   fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int, promise: Promise) {
     try {
-      promise.resolve(chunkFile(parentFilePath, chunkDirPath, numChunks));
+      promise.resolve(chunkFile(parentFilePath, chunkDirPath, numChunks))
     } catch (error: Throwable) {
       promise.reject(error)
     }
@@ -149,6 +157,9 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
    * @return whether the upload was started
    */
   private fun maybeStartUpload(upload: Upload) {
+    if (upload.discretionary && discretionaryHttpStack == null) return
+    if (!upload.discretionary && httpStack == null) return
+
     val notificationManager =
       (reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
     initializeNotificationChannel(upload.notificationChannel, notificationManager)

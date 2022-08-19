@@ -11,20 +11,15 @@ fun observeBestNetwork(
   connectivityManager: ConnectivityManager,
   discretionary: Boolean,
 ) = callbackFlow<Network?> {
-  val networks = mutableSetOf<Network>()
   var currentBestNetwork: Network? = null
 
-
   val request = NetworkRequest.Builder().run {
-    addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
-    }
     if (discretionary) {
       addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
       addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    } else {
+      addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
     }
     build()
   }
@@ -39,35 +34,30 @@ fun observeBestNetwork(
   val callback = object :
     ConnectivityManager.NetworkCallback() {
     override fun onAvailable(network: Network) {
-      networks.add(network)
-      setBestNetwork(computeBestNetwork(connectivityManager, networks))
+      setBestNetwork(network)
     }
 
     override fun onLosing(network: Network, maxMsToLive: Int) {
-      networks.remove(network)
-      setBestNetwork(computeBestNetwork(connectivityManager, networks))
+      setBestNetwork((network))
     }
 
     override fun onLost(network: Network) {
-      networks.remove(network)
-      setBestNetwork(computeBestNetwork(connectivityManager, networks))
+      setBestNetwork((network))
     }
 
     override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
-      if (blocked) networks.remove(network)
-      else networks.add(network)
-      setBestNetwork(computeBestNetwork(connectivityManager, networks))
+      setBestNetwork((network))
     }
 
     override fun onCapabilitiesChanged(
       network: Network,
       networkCapabilities: NetworkCapabilities
     ) {
-      setBestNetwork(computeBestNetwork(connectivityManager, networks))
+      setBestNetwork(network)
     }
   }
 
-  connectivityManager.registerNetworkCallback(request, callback)
+  connectivityManager.requestNetwork(request, callback)
 
   awaitClose {
     connectivityManager.unregisterNetworkCallback(callback)
@@ -79,64 +69,11 @@ fun observeBestNetwork(
   .debounce(1000)
 
 
-private fun computeBestNetwork(
-  connectivityManager: ConnectivityManager,
-  candidates: Set<Network>,
-): Network? {
-  var candidates = candidates.filter { !checkSuspendedStatusWithLegacyAPI(it, connectivityManager) }
-
-  candidates.find {
-    connectivityManager.activeNetwork == it
-  }?.let { return it }
-
-  // When the device is connected to wifi, the wifi becomes the active network,
-  // but it's not guaranteed to have internet connections, which means it won't
-  // be in our list of bestNetworks.
-  //
-  // So as a fallback, we'll have to select the best network from the list
-
-  // If there are trusted networks, only use them
-  candidates.filter {
-    connectivityManager.getNetworkCapabilities(it)
-      ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)
-      ?: true
-  }.let { if (it.isNotEmpty()) candidates = it }
-
-  // If there are un-metered networks, only use them
-  candidates.filter {
-    connectivityManager.getNetworkCapabilities(it)
-      ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-      ?: true
-  }.let { if (it.isNotEmpty()) candidates = it }
-
-  // If there are un-restricted networks, only use them
-  candidates.filter {
-    connectivityManager.getNetworkCapabilities(it)
-      ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-      ?: true
-  }.let { if (it.isNotEmpty()) candidates = it }
-
-  // If there are non-roaming networks, only use them
-  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-    candidates.filter {
-      connectivityManager.getNetworkCapabilities(it)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
-        ?: true
-    }.let { if (it.isNotEmpty()) candidates = it }
-
-  // If there are wifi networks, only use them
-  candidates.filter {
-    connectivityManager.getNetworkCapabilities(it)
-      ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-      ?: true
-  }.let { if (it.isNotEmpty()) candidates = it }
-
-  return candidates.maxByOrNull {
-    connectivityManager.getNetworkCapabilities(it)
-      ?.linkUpstreamBandwidthKbps
-      ?: 0
-  }
-}
+//addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+//addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+//if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+//  addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+//}
 
 private fun checkSuspendedStatusWithLegacyAPI(
   network: Network,

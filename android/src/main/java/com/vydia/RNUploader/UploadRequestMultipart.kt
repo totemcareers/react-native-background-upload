@@ -1,7 +1,9 @@
 package com.vydia.RNUploader
 
 import android.content.Context
-import net.gotev.uploadservice.*
+import net.gotev.uploadservice.HttpUploadRequest
+import net.gotev.uploadservice.HttpUploadTask
+import net.gotev.uploadservice.UploadTask
 import net.gotev.uploadservice.data.NameValue
 import net.gotev.uploadservice.data.UploadFile
 import net.gotev.uploadservice.extensions.addHeader
@@ -106,13 +108,13 @@ class MultipartUploadTask : HttpUploadTask() {
 
   private val NameValue.multipartHeader: ByteArray
     get() = boundaryBytes + ("Content-Disposition: form-data; " +
-        "name=\"$name\"$NEW_LINE$NEW_LINE$value$NEW_LINE").utf8Bytes
+      "name=\"$name\"$NEW_LINE$NEW_LINE$value$NEW_LINE").utf8Bytes
 
   private val UploadFile.multipartHeader: ByteArray
     get() = boundaryBytes + ("Content-Disposition: form-data; " +
-        "name=\"$parameterName\"; " +
-        "filename=\"$remoteFileName\"$NEW_LINE" +
-        "Content-Type: $contentType$NEW_LINE$NEW_LINE").utf8Bytes
+      "name=\"$parameterName\"; " +
+      "filename=\"$remoteFileName\"$NEW_LINE" +
+      "Content-Type: $contentType$NEW_LINE$NEW_LINE").utf8Bytes
 
   private val UploadFile.totalMultipartBytes: Long
     get() = multipartHeader.size.toLong() + handler.size(context) + newLineBytes.size.toLong()

@@ -2,16 +2,10 @@ package com.vydia.RNUploader
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Context
-import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkInfo
 import android.os.Build
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReadableArray
-import com.facebook.react.bridge.WritableArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -22,7 +16,7 @@ import java.nio.channels.FileChannel
 import java.util.concurrent.TimeUnit
 
 fun buildHttpStack(network: Network?): OkHttpStack? {
-  if(network == null) return null
+  if (network == null) return null
   return OkHttpStack(
     OkHttpClient().newBuilder().run {
       followRedirects(true)
@@ -41,29 +35,29 @@ fun buildHttpStack(network: Network?): OkHttpStack? {
 fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int): ReadableArray {
   val file = RandomAccessFile(parentFilePath, "r")
 
-  val numBytes = file.length();
+  val numBytes = file.length()
   val chunkSize = numBytes / numChunks + if (numBytes % numChunks > 0) 1 else 0
-  val chunkRanges = Arguments.createArray();
+  val chunkRanges = Arguments.createArray()
 
 
   runBlocking(Dispatchers.IO) {
     for (i in 0 until numChunks) {
-      val outputPath = chunkDirPath.plus("/").plus(i.toString());
-      val outputFile = RandomAccessFile(outputPath, "rw");
+      val outputPath = chunkDirPath.plus("/").plus(i.toString())
+      val outputFile = RandomAccessFile(outputPath, "rw")
 
-      val rangeStart = chunkSize * i;
-      var rangeLength = numBytes - rangeStart;
-      if (rangeLength > chunkSize) rangeLength = chunkSize;
+      val rangeStart = chunkSize * i
+      var rangeLength = numBytes - rangeStart
+      if (rangeLength > chunkSize) rangeLength = chunkSize
 
       chunkRanges.pushMap(Arguments.createMap().apply {
-        putString("position", rangeStart.toString());
-        putString("size", rangeLength.toString());
+        putString("position", rangeStart.toString())
+        putString("size", rangeLength.toString())
       })
 
       launch {
-        val input = file.channel.map(FileChannel.MapMode.READ_ONLY, rangeStart, rangeLength);
-        val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, rangeLength);
-        output.put(input);
+        val input = file.channel.map(FileChannel.MapMode.READ_ONLY, rangeStart, rangeLength)
+        val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, rangeLength)
+        output.put(input)
       }
     }
   }

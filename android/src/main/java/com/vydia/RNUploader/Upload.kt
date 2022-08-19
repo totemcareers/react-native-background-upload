@@ -57,7 +57,7 @@ class Upload(options: ReadableMap) {
     id = RNUploadId(options.getString("customUploadId") ?: UUID.randomUUID().toString())
     url = options.getString("url") ?: throw InvalidUploadOptionException("Missing 'url' field.")
     path = options.getString("path") ?: throw InvalidUploadOptionException("Missing 'path' field.")
-    method = options.getString("method") ?: method;
+    method = options.getString("method") ?: method
 
     if (options.hasKey("type")) {
       val requestType =
@@ -142,4 +142,4 @@ class Upload(options: ReadableMap) {
   }
 }
 
-class InvalidUploadOptionException(message: String) : IllegalArgumentException(message) {}
+class InvalidUploadOptionException(message: String) : IllegalArgumentException(message)

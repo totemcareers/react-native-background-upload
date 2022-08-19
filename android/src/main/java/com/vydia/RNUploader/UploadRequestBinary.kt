@@ -88,7 +88,7 @@ class BinaryUploadTask : HttpUploadTask() {
 
   override fun performInitialization() {
     with(httpParams.requestHeaders) {
-      if (none { it.name.toLowerCase(Locale.getDefault()) == "content-type" }) {
+      if (none { it.name.lowercase(Locale.getDefault()) == "content-type" }) {
         addHeader("Content-Type", file.contentType(context))
       }
     }

@@ -75,7 +75,7 @@ class GlobalRequestObserverDelegate(private val reactContext: ReactApplicationCo
       val jsModule = reactContext.getJSModule(RCTDeviceEventEmitter::class.java)
       jsModule.emit("RNFileUploader-$eventName", params)
     } catch (exc: Throwable) {
-      Log.e(TAG, "sendEvent() failed", exc);
+      Log.e(TAG, "sendEvent() failed", exc)
     }
   }
 }
