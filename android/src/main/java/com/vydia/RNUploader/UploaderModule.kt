@@ -69,12 +69,12 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
-    observeBestNetwork(connectivityManager, false) {
+    pickBestNetwork(connectivityManager, false) {
       httpStack = buildHttpStack(it)
       handleNetworkChange(false)
     }
 
-    observeBestNetwork(connectivityManager, true) {
+    pickBestNetwork(connectivityManager, true) {
       discretionaryHttpStack = buildHttpStack(it)
       handleNetworkChange(true)
     }
@@ -90,18 +90,12 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   }
 
   private fun handleNetworkChange(discretionary: Boolean) {
-    val count = uploads.size
-    val httpStack = if(discretionary) discretionaryHttpStack else httpStack
-    Log.d(TAG, "Processing $count deferred uploads. Discretionary: $discretionary")
-    Log.d(TAG, "HttpStack available? ${httpStack != null}")
-
     uploads.values
       .filter { it.discretionary == discretionary }
       .forEach {
         // stop the upload because we're switching network
         // setting requestId to null to prevent cancellation event reporting
-        it.requestId = null
-        UploadService.stopUpload(it.id.value)
+        maybeCancelUpload(it.id, true)
         maybeStartUpload(it)
       }
   }
@@ -115,16 +109,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   fun startUpload(rawOptions: ReadableMap, promise: Promise) {
     try {
       val new = Upload(rawOptions)
-
-      // if there's an existing upload, cancel its current request
-      uploads[new.id]?.let { old ->
-        old.requestId?.let {
-          // removing the requestId to silence the event reporting
-          old.requestId = null
-          UploadService.stopUpload(it.value)
-        }
-      }
-
+      maybeCancelUpload(new.id, true)
       maybeStartUpload(new)
 
       uploads[new.id] = new
@@ -161,6 +146,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         upload.parameters.forEach { (key, value) -> addParameter(key, value) }
       }
     }
+    Log.i(TAG, "starting request ID $requestId for ${upload.id}")
 
     request.apply {
       setMethod(upload.method)
@@ -183,13 +169,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun cancelUpload(uploadId: String, promise: Promise) {
     try {
-      uploads[RNUploadId(uploadId)]?.let { upload ->
-        val requestId = upload.requestId
-        if (requestId == null)
-          uploadEventListener.reportCancelled(upload.id)
-        else
-          UploadService.stopUpload(requestId.value)
-      }
+      maybeCancelUpload(RNUploadId(uploadId), false)
       promise.resolve(true)
     } catch (exc: Throwable) {
       exc.printStackTrace()
@@ -197,6 +177,19 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
       promise.reject(exc)
     }
   }
+
+  private fun maybeCancelUpload(id: RNUploadId, silent: Boolean) {
+    uploads[id]?.let { upload ->
+      upload.requestId?.let {
+        if (silent) upload.requestId = null
+        UploadService.stopUpload(it.value)
+        return
+      }
+
+      if (!silent) uploadEventListener.reportCancelled(upload.id)
+    }
+  }
+
 
   /*
    * Cancels all file uploads

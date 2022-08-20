@@ -3,7 +3,7 @@ package com.vydia.RNUploader
 import android.net.*
 import android.os.Build
 
-fun observeBestNetwork(
+fun pickBestNetwork(
   connectivityManager: ConnectivityManager,
   discretionary: Boolean,
   onChange: (network: Network?) -> Unit
@@ -38,12 +38,14 @@ fun observeBestNetwork(
 
   observeNetwork(connectivityManager, wifiRequest) {
     wifi = it
+    wifi?.let { connectivityManager.bindProcessToNetwork(wifi) }
     setBestNetwork()
   }
 
   if (!discretionary)
     observeNetwork(connectivityManager, cellularRequest) {
       cellular = it
+      cellular?.let { connectivityManager.bindProcessToNetwork(cellular) }
       setBestNetwork()
     }
 }
