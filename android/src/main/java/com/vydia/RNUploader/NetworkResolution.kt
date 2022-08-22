@@ -3,11 +3,53 @@ package com.vydia.RNUploader
 import android.net.*
 import android.os.Build
 
+class NetworkResolution(
+  private val connectivityManager: ConnectivityManager,
+  private val onBestNetworkChange: (network: Network?, discretionary: Boolean) -> Unit
+) {
+  private var smartNetworkResolutionEnabled = false
+  private val unregisterDefaultNetworkListeners: () -> Unit
+
+  init {
+    val unregisterNonDiscretionaryNetworkListener =
+      pickBestNetwork(connectivityManager, discretionary = false, bindProcessToNetwork = false) {
+        onBestNetworkChange(it, false)
+      }
+
+    val unregisterDiscretionaryNetworkListener =
+      pickBestNetwork(connectivityManager, discretionary = true, bindProcessToNetwork = false) {
+        onBestNetworkChange(it, true)
+      }
+
+
+    unregisterDefaultNetworkListeners = {
+      unregisterDiscretionaryNetworkListener()
+      unregisterNonDiscretionaryNetworkListener()
+    }
+  }
+
+  fun enableSmartNetworkResolution() {
+    if (smartNetworkResolutionEnabled) return
+    smartNetworkResolutionEnabled = true
+    unregisterDefaultNetworkListeners()
+
+    pickBestNetwork(connectivityManager, discretionary = false, bindProcessToNetwork = true) {
+      onBestNetworkChange(it, false)
+    }
+
+    pickBestNetwork(connectivityManager, discretionary = true, bindProcessToNetwork = true) {
+      onBestNetworkChange(it, true)
+    }
+  }
+}
+
+
 fun pickBestNetwork(
   connectivityManager: ConnectivityManager,
   discretionary: Boolean,
+  bindProcessToNetwork: Boolean,
   onChange: (network: Network?) -> Unit
-) {
+): () -> Unit {
   var wifi: Network? = null
   var cellular: Network? = null
   var bestNetwork: Network? = null
@@ -36,25 +78,32 @@ fun pickBestNetwork(
     onChange(bestNetwork)
   }
 
-  observeNetwork(connectivityManager, wifiRequest) {
+
+  val unregisterWifiCallback = observeNetwork(connectivityManager, wifiRequest) {
     wifi = it
-    wifi?.let { connectivityManager.bindProcessToNetwork(wifi) }
+    if (bindProcessToNetwork) wifi?.let { connectivityManager.bindProcessToNetwork(wifi) }
     setBestNetwork()
   }
 
+  var unregisterCellularCallback: (() -> Unit)? = null
   if (!discretionary)
-    observeNetwork(connectivityManager, cellularRequest) {
+    unregisterCellularCallback = observeNetwork(connectivityManager, cellularRequest) {
       cellular = it
-      cellular?.let { connectivityManager.bindProcessToNetwork(cellular) }
+      if (bindProcessToNetwork) cellular?.let { connectivityManager.bindProcessToNetwork(cellular) }
       setBestNetwork()
     }
+
+  return {
+    unregisterWifiCallback()
+    unregisterCellularCallback?.let { it() }
+  }
 }
 
 private fun observeNetwork(
   connectivityManager: ConnectivityManager,
   request: NetworkRequest,
   onChange: (network: Network?) -> Unit
-) {
+): () -> Unit {
   var current: Network? = null
   fun setNetwork(network: Network?) {
     val new = network.let {
@@ -68,8 +117,7 @@ private fun observeNetwork(
     onChange(new)
   }
 
-  // using `requestNetwork` as it allows keeping cellular networks available when wifi is connected
-  connectivityManager.requestNetwork(request, object : ConnectivityManager.NetworkCallback() {
+  val callback = object : ConnectivityManager.NetworkCallback() {
     override fun onAvailable(network: Network) {
       setNetwork(network)
     }
@@ -89,7 +137,13 @@ private fun observeNetwork(
     override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
       setNetwork(network)
     }
-  })
+  }
+  // using `requestNetwork` as it allows keeping cellular networks available when wifi is connected
+  connectivityManager.requestNetwork(request, callback)
+
+  return {
+    connectivityManager.unregisterNetworkCallback(callback)
+  }
 }
 
 

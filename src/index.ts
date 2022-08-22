@@ -55,18 +55,15 @@ export const startUpload = ({
   return NativeModule.startUpload({ ...options, path });
 };
 
-/*
-Cancels active upload by string ID of the upload.
-
-Upload ID is returned in a promise after a call to startUpload method,
-use it to cancel started upload.
-
-Event "cancelled" will be fired when upload is cancelled.
-
-Returns a promise with boolean true if operation was successfully completed.
-Will reject if there was an internal error or ID format is invalid.
-
-*/
+/**
+ * Cancels active upload by string ID of the upload.
+ *
+ * Upload ID is returned in a promise after a call to startUpload method,
+ * use it to cancel started upload.
+ * Event "cancelled" will be fired when upload is cancelled.
+ * Returns a promise with boolean true if operation was successfully completed.
+ * Will reject if there was an internal error or ID format is invalid.
+ */
 export const cancelUpload = (cancelUploadId: string): Promise<boolean> => {
   if (typeof cancelUploadId !== 'string') {
     return Promise.reject(new Error('Upload ID must be a string'));
@@ -74,15 +71,15 @@ export const cancelUpload = (cancelUploadId: string): Promise<boolean> => {
   return NativeModule.cancelUpload(cancelUploadId);
 };
 
-/*
-Listens for the given event on the given upload ID (resolved from startUpload).
-If you don't supply a value for uploadId, the event will fire for all uploads.
-Events (id is always the upload ID):
-  progress - { id: string, progress: int (0-100) }
-  error - { id: string, error: string }
-  cancelled - { id: string, error: string }
-  completed - { id: string }
-*/
+/**
+ * Listens for the given event on the given upload ID (resolved from startUpload).
+ * If you don't supply a value for uploadId, the event will fire for all uploads.
+ * Events (id is always the upload ID):
+ * progress - { id: string, progress: int (0-100) }
+ * error - { id: string, error: string }
+ * cancelled - { id: string, error: string }
+ * completed - { id: string }
+ */
 export const addListener: AddListener = (eventType, uploadId, listener) => {
   return DeviceEventEmitter.addListener(eventPrefix + eventType, (data) => {
     if (!uploadId || !data || !data.id || data.id === uploadId) {
@@ -91,10 +88,10 @@ export const addListener: AddListener = (eventType, uploadId, listener) => {
   });
 };
 
-/*
-  Splits a parent file into {numChunks} chunks and place them into the specified directory.
-  Each chunk file will be named by its corresponding index (0, 1, 2,...).
-  */
+/**
+ * Splits a parent file into {numChunks} chunks and place them into the specified directory.
+ * Each chunk file will be named by its corresponding index (0, 1, 2,...).
+ */
 export const chunkFile = async (
   parentFilePath: string,
   chunkDirPath: string,
@@ -114,12 +111,12 @@ export const chunkFile = async (
 };
 
 export const ios = {
-  /*
-  Directly check the state of a single upload task without using event listeners.
-  Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
-  They're all `undefined`. You will need to either rely on the listeners or
-  check with the API service you're using to upload.
-  */
+  /**
+   * Directly check the state of a single upload task without using event listeners.
+   * Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
+   * They're all `undefined`. You will need to either rely on the listeners or
+   * check with the API service you're using to upload.
+   */
   getUploadStatus: async (
     jobId: string,
   ): Promise<{
@@ -129,10 +126,23 @@ export const ios = {
   }> => (await NativeModule.getUploadStatus(jobId)) || { state: undefined },
 };
 
+export const android = {
+  /**
+   * Once this is enabled, the entire app will be able to use cellular network
+   * as the default network when wifi doesn't have internet connections.
+   * This setting is not persisted, so it needs to be enabled everytime the app starts.
+   * It also cannot be reverted until the app is killed.
+   */
+  enableSmartNetworkResolution: () => {
+    NativeModule.enableSmartNetworkResolution();
+  },
+};
+
 export default {
   startUpload,
   cancelUpload,
   addListener,
   chunkFile,
   ios,
+  android,
 };

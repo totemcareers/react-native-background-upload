@@ -28,6 +28,7 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
   private val connectivityManager =
     reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+  private val networkResolution: NetworkResolution
 
   companion object {
     val TAG = "UploaderBridge"
@@ -69,14 +70,13 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
     GlobalRequestObserver(application, uploadEventListener)
 
     // == register network listener ==
-    pickBestNetwork(connectivityManager, false) {
-      httpStack = buildHttpStack(it)
-      handleNetworkChange(false)
-    }
+    networkResolution = NetworkResolution(connectivityManager) { network, discretionary ->
+      val stack = buildHttpStack(network)
 
-    pickBestNetwork(connectivityManager, true) {
-      discretionaryHttpStack = buildHttpStack(it)
-      handleNetworkChange(true)
+      if (discretionary) discretionaryHttpStack = stack
+      else httpStack = stack
+
+      handleNetworkChange(discretionary)
     }
   }
 
@@ -98,6 +98,12 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
         maybeCancelUpload(it.id, true)
         maybeStartUpload(it)
       }
+  }
+
+  // Lets the app defaults to Cellular network when Wifi doesn't have internet
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun enableSmartNetworkResolution() {
+    networkResolution.enableSmartNetworkResolution()
   }
 
 
