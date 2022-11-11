@@ -110,7 +110,7 @@ export const chunkFile = async (
   }));
 };
 
-export const ios = {
+const ios = {
   /**
    * Directly check the state of a single upload task without using event listeners.
    * Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
@@ -126,23 +126,10 @@ export const ios = {
   }> => (await NativeModule.getUploadStatus(jobId)) || { state: undefined },
 };
 
-export const android = {
-  /**
-   * Once this is enabled, the entire app will be able to use cellular network
-   * as the default network when wifi doesn't have internet connections.
-   * This setting is not persisted, so it needs to be enabled everytime the app starts.
-   * It also cannot be reverted until the app is killed.
-   */
-  enableSmartNetworkResolution: () => {
-    NativeModule.enableSmartNetworkResolution();
-  },
-};
-
 export default {
   startUpload,
   cancelUpload,
   addListener,
   chunkFile,
   ios,
-  android,
 };

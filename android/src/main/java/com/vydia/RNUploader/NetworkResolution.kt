@@ -1,123 +1,54 @@
 package com.vydia.RNUploader
 
-import android.net.*
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkInfo
 import android.os.Build
 
-class NetworkResolution(
-  private val connectivityManager: ConnectivityManager,
-  private val onBestNetworkChange: (network: Network?, discretionary: Boolean) -> Unit
+fun observeNetwork(
+  connectivityManager: ConnectivityManager,
+  onNetworkChange: (network: Network?) -> Unit,
+  onDiscretionaryNetworkChange: (network: Network?) -> Unit,
 ) {
-  private var smartNetworkResolutionEnabled = false
-  private val unregisterDefaultNetworkListeners: () -> Unit
 
-  init {
-    val unregisterNonDiscretionaryNetworkListener =
-      pickBestNetwork(connectivityManager, discretionary = false, bindProcessToNetwork = false) {
-        onBestNetworkChange(it, false)
-      }
+  // Technically we can pick and choose the network with available internet connection using
+  // NetworkRequest and ConnectivityManager.bindProcessToNetwork.
+  // However, bindProcessToNetwork will cause react-native to unexpectedly
+  // use the last bound network (instead of the default one) and other libraries
+  // that use network connection to also behave unexpectedly, so this is the best option we have.
+  connectivityManager.registerDefaultNetworkCallback(
+    networkListener(connectivityManager) { network ->
+      onNetworkChange(network)
 
-    val unregisterDiscretionaryNetworkListener =
-      pickBestNetwork(connectivityManager, discretionary = true, bindProcessToNetwork = false) {
-        onBestNetworkChange(it, true)
-      }
-
-
-    unregisterDefaultNetworkListeners = {
-      unregisterDiscretionaryNetworkListener()
-      unregisterNonDiscretionaryNetworkListener()
+      val capabilities = connectivityManager.getNetworkCapabilities(network)
+      var discretionaryNetwork: Network? = network
+      if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true)
+        discretionaryNetwork = null
+      if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true)
+        discretionaryNetwork = null
+      onDiscretionaryNetworkChange(discretionaryNetwork)
     }
-  }
-
-  fun enableSmartNetworkResolution() {
-    if (smartNetworkResolutionEnabled) return
-    smartNetworkResolutionEnabled = true
-    unregisterDefaultNetworkListeners()
-
-    pickBestNetwork(connectivityManager, discretionary = false, bindProcessToNetwork = true) {
-      onBestNetworkChange(it, false)
-    }
-
-    pickBestNetwork(connectivityManager, discretionary = true, bindProcessToNetwork = true) {
-      onBestNetworkChange(it, true)
-    }
-  }
+  )
 }
 
 
-fun pickBestNetwork(
+private fun networkListener(
   connectivityManager: ConnectivityManager,
-  discretionary: Boolean,
-  bindProcessToNetwork: Boolean,
   onChange: (network: Network?) -> Unit
-): () -> Unit {
-  var wifi: Network? = null
-  var cellular: Network? = null
-  var bestNetwork: Network? = null
-
-  val wifiRequest = NetworkRequest.Builder().run {
-    addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-    if (discretionary)
-      addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-    build()
-  }
-
-  val cellularRequest = NetworkRequest.Builder().run {
-    addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-    build()
-  }
-
-  fun setBestNetwork() {
-    var network = wifi
-    if (!discretionary && cellular != null && wifi == null)
-      network = cellular
-
-    if (network == bestNetwork) return
-    bestNetwork = network
-    onChange(bestNetwork)
-  }
-
-
-  val unregisterWifiCallback = observeNetwork(connectivityManager, wifiRequest) {
-    wifi = it
-    if (bindProcessToNetwork) wifi?.let { connectivityManager.bindProcessToNetwork(wifi) }
-    setBestNetwork()
-  }
-
-  var unregisterCellularCallback: (() -> Unit)? = null
-  if (!discretionary)
-    unregisterCellularCallback = observeNetwork(connectivityManager, cellularRequest) {
-      cellular = it
-      if (bindProcessToNetwork) cellular?.let { connectivityManager.bindProcessToNetwork(cellular) }
-      setBestNetwork()
-    }
-
-  return {
-    unregisterWifiCallback()
-    unregisterCellularCallback?.let { it() }
-  }
-}
-
-private fun observeNetwork(
-  connectivityManager: ConnectivityManager,
-  request: NetworkRequest,
-  onChange: (network: Network?) -> Unit
-): () -> Unit {
+): ConnectivityManager.NetworkCallback {
   var current: Network? = null
   fun setNetwork(network: Network?) {
-    val new = network.let {
-      if (it == null) null
-      else if (validateNetwork(it, connectivityManager)) network
+    val new =
+      if (networkCanBeUsed(network, connectivityManager)) network
       else null
-    }
 
     if (new == current) return
     current = new
     onChange(new)
   }
 
-  val callback = object : ConnectivityManager.NetworkCallback() {
+  return object : ConnectivityManager.NetworkCallback() {
     override fun onAvailable(network: Network) {
       setNetwork(network)
     }
@@ -138,20 +69,18 @@ private fun observeNetwork(
       setNetwork(network)
     }
   }
-  // using `requestNetwork` as it allows keeping cellular networks available when wifi is connected
-  connectivityManager.requestNetwork(request, callback)
 
-  return {
-    connectivityManager.unregisterNetworkCallback(callback)
-  }
 }
 
 
-private fun validateNetwork(
-  network: Network,
+// Inspired by @react-native-community/net-info
+private fun networkCanBeUsed(
+  network: Network?,
   connectivityManager: ConnectivityManager
 ): Boolean {
+  if (network == null) return false
   val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+  if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
   if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return false
   if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)) return false
   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
