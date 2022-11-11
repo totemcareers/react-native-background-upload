@@ -25,28 +25,6 @@ export declare const addListener: AddListener;
  * Each chunk file will be named by its corresponding index (0, 1, 2,...).
  */
 export declare const chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
-export declare const ios: {
-    /**
-     * Directly check the state of a single upload task without using event listeners.
-     * Note that this method has no way of distinguishing between a task being completed, errored, or non-existent.
-     * They're all `undefined`. You will need to either rely on the listeners or
-     * check with the API service you're using to upload.
-     */
-    getUploadStatus: (jobId: string) => Promise<{
-        state: 'running' | 'suspended' | 'canceling' | undefined;
-        bytesSent?: number;
-        totalBytes?: number;
-    }>;
-};
-export declare const android: {
-    /**
-     * Once this is enabled, the entire app will be able to use cellular network
-     * as the default network when wifi doesn't have internet connections.
-     * This setting is not persisted, so it needs to be enabled everytime the app starts.
-     * It also cannot be reverted until the app is killed.
-     */
-    enableSmartNetworkResolution: () => void;
-};
 declare const _default: {
     startUpload: ({ path, ...options }: UploadOptions) => Promise<string>;
     cancelUpload: (cancelUploadId: string) => Promise<boolean>;
@@ -64,15 +42,6 @@ declare const _default: {
             bytesSent?: number;
             totalBytes?: number;
         }>;
-    };
-    android: {
-        /**
-         * Once this is enabled, the entire app will be able to use cellular network
-         * as the default network when wifi doesn't have internet connections.
-         * This setting is not persisted, so it needs to be enabled everytime the app starts.
-         * It also cannot be reverted until the app is killed.
-         */
-        enableSmartNetworkResolution: () => void;
     };
 };
 export default _default;
