@@ -1,3 +1,3 @@
 module.exports = {
-  '*.{js,jsx}': ['eslint --fix', 'jest --bail --findRelatedTests'],
+  '*.{js,jsx}': ['yarn lint'],
 };

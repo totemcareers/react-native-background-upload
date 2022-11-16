@@ -26,21 +26,15 @@
     "react-native-image-picker": "^1.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.8.4",
-    "@babel/runtime": "^7.8.4",
-    "@react-native-community/eslint-config": "^1.1.0",
-    "babel-jest": "^26.3.0",
     "content-type": "^1.0.4",
     "detox": "17.4.4",
-    "eslint": "^6.6.0",
     "express": "^4.17.1",
     "fs": "^0.0.1-security",
     "jest": "26.x.x",
     "jest-circus": "26.x.x",
-    "sanitize-filename": "^1.6.1",
-    "metro-react-native-babel-preset": "^0.59.0",
     "multer": "^1.4.2",
     "react-test-renderer": "16.13.1",
+    "sanitize-filename": "^1.6.1",
     "uuid": "^3.3.3"
   },
   "jest": {

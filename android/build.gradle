@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        kotlinVersion = '1.4.0'
+        kotlinVersion = '1.6.10'
         buildToolsVersion = '29.0.2'
         compileSdkVersion = 29
         targetSdkVersion = 29
@@ -35,7 +35,7 @@ android {
     buildToolsVersion safeExtGet('buildToolsVersion', DEFAULT_BUILD_TOOLS_VERSION)
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion safeExtGet('targetSdkVersion', DEFAULT_TARGET_SDK_VERSION)
         versionCode 1
         versionName "1.0"
@@ -66,5 +66,11 @@ dependencies {
 
     implementation 'net.gotev:uploadservice-okhttp:4.7.0'
 
+    implementation "com.squareup.okhttp3:okhttp:4.10.0"
+
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.0.0'
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3'
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.3'
 }

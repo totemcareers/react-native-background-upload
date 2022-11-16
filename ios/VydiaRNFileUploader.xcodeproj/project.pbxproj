@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DC352C7A284AA8BB008DBB93 /* Helper.m in Sources */ = {isa = PBXBuildFile; fileRef = DC352C79284AA8BB008DBB93 /* Helper.m */; };
 		DCC748851E044F8700EA453E /* VydiaRNFileUploader.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */; };
 /* End PBXBuildFile section */
 
@@ -23,7 +24,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		014A3B5C1C6CF33500B6D375 /* libVydiaRNFileUploader.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libVydiaRNFileUploader.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		014A3B5C1C6CF33500B6D375 /* libVydiaRNFileUploader.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; name = libVydiaRNFileUploader.a; path = "/Users/thomasvo/WebstormProjects/react-native-background-upload/ios/build/Debug-iphoneos/libVydiaRNFileUploader.a"; sourceTree = "<absolute>"; };
+		DC352C79284AA8BB008DBB93 /* Helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Helper.m; sourceTree = "<group>"; };
+		DC352C7C284AAC6A008DBB93 /* Helper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Helper.h; sourceTree = "<group>"; };
+		DC352C7D284AADCF008DBB93 /* react-native-background-upload.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; name = "react-native-background-upload.podspec"; path = "../react-native-background-upload.podspec"; sourceTree = "<group>"; };
 		DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VydiaRNFileUploader.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -42,16 +46,10 @@
 			isa = PBXGroup;
 			children = (
 				DCC748841E044F8700EA453E /* VydiaRNFileUploader.m */,
-				014A3B5D1C6CF33500B6D375 /* Products */,
+				DC352C79284AA8BB008DBB93 /* Helper.m */,
+				DC352C7C284AAC6A008DBB93 /* Helper.h */,
+				DC352C7D284AADCF008DBB93 /* react-native-background-upload.podspec */,
 			);
-			sourceTree = "<group>";
-		};
-		014A3B5D1C6CF33500B6D375 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				014A3B5C1C6CF33500B6D375 /* libVydiaRNFileUploader.a */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -93,10 +91,11 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 014A3B531C6CF33500B6D375;
-			productRefGroup = 014A3B5D1C6CF33500B6D375 /* Products */;
+			productRefGroup = 014A3B531C6CF33500B6D375;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -111,6 +110,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCC748851E044F8700EA453E /* VydiaRNFileUploader.m in Sources */,
+				DC352C7A284AA8BB008DBB93 /* Helper.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

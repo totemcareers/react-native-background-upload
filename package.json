@@ -2,10 +2,14 @@
   "name": "react-native-background-upload",
   "version": "6.5.1",
   "description": "Cross platform http post file uploader with android and iOS background support",
-  "main": "src/index.js",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "react-native": "src/index",
+  "source": "src/index",
   "scripts": {
+    "build": "tsc && tsc-alias",
     "lint": "yarn lint:ci --fix",
-    "lint:ci": "eslint src example",
+    "lint:ci": "eslint --ext js,jsx,ts,tsx src example --quiet",
     "test": "echo \"Error: no test specified\" && exit 1",
     "release": "semantic-release"
   },
@@ -32,17 +36,25 @@
   },
   "homepage": "https://github.com/Vydia/react-native-background-upload#readme",
   "devDependencies": {
-    "@react-native-community/eslint-config": "^0.0.7",
+    "@babel/core": "^7.18.2",
+    "@babel/eslint-parser": "^7.18.2",
+    "@babel/eslint-plugin": "^7.17.7",
+    "@react-native-community/eslint-config": "^3.0.2",
     "@semantic-release/commit-analyzer": "^6.3.3",
     "@semantic-release/git": "^7.0.18",
     "@semantic-release/github": "^5.5.5",
     "@semantic-release/npm": "^5.3.4",
     "@semantic-release/release-notes-generator": "^7.3.5",
     "@types/react-native": "^0.64.0",
-    "eslint": "^6.8.0",
+    "eslint": "^8.17.0",
+    "eslint-plugin-unused-imports": "^2.0.0",
     "husky": "^4.2.3",
     "lint-staged": "^10.0.8",
-    "semantic-release": "^15.13.31"
+    "metro-react-native-babel-preset": "^0.71.0",
+    "prettier": "^2.6.2",
+    "semantic-release": "^15.13.31",
+    "tsc-alias": "^1.6.8",
+    "typescript": "^4.7.3"
   },
   "release": {
     "plugins": [
