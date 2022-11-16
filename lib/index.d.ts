@@ -1,4 +1,4 @@
-import { AddListener, ChunkInfo, UploadId, UploadOptions } from './types';
+import { AddListener, UploadId, UploadOptions } from './types';
 export declare const startUpload: ({ path, ...options }: UploadOptions) => Promise<UploadId>;
 /**
  * Cancels active upload by string ID of the upload.
@@ -24,12 +24,26 @@ export declare const addListener: AddListener;
  * Splits a parent file into {numChunks} chunks and place them into the specified directory.
  * Each chunk file will be named by its corresponding index (0, 1, 2,...).
  */
-export declare const chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
+export declare const chunkFile: (parentFilePath: string, chunks: {
+    /** Byte position of the chunk */
+    position: number;
+    /** Byte length of the chunk */
+    size: number;
+    /** Where the chunk will be exported to */
+    path: string;
+}[]) => Promise<void>;
 declare const _default: {
     startUpload: ({ path, ...options }: UploadOptions) => Promise<string>;
     cancelUpload: (cancelUploadId: string) => Promise<boolean>;
     addListener: AddListener;
-    chunkFile: (parentFilePath: string, chunkDirPath: string, numChunks: number) => Promise<ChunkInfo[]>;
+    chunkFile: (parentFilePath: string, chunks: {
+        /** Byte position of the chunk */
+        position: number;
+        /** Byte length of the chunk */
+        size: number;
+        /** Where the chunk will be exported to */
+        path: string;
+    }[]) => Promise<void>;
     ios: {
         /**
          * Directly check the state of a single upload task without using event listeners.

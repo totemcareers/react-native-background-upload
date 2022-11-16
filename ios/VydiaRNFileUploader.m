@@ -240,8 +240,7 @@ RCT_EXPORT_METHOD(getUploadStatus: (NSString *)uploadId resolve:(RCTPromiseResol
  * Can chunk a 2GB file in under 3s
  */
 RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
-                  chunkPath: (NSString *)chunkPath
-                  chunkNum: (int) numChunks
+                  chunks: (NSArray<NSDictionary *> *)chunks
                   resolve: (RCTPromiseResolveBlock)resolve
                   reject: (RCTPromiseRejectBlock)reject
                   ) {
@@ -252,36 +251,27 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     // but converts the file into a memory region.
     NSData *parentFile = [NSData dataWithContentsOfFile:parentFilePath options:NSDataReadingMappedAlways error:&error];
     if(error) {
-        reject(@"ChunkFile", @"Failed to chunk file", error);
+        reject(@"ChunkFile", @"Failed to get parent file", error);
         return;
     };
-    
-    NSUInteger numBytes = [parentFile length];
-    NSUInteger chunkSize = numBytes / numChunks + (numBytes % numChunks > 0 ? 1 : 0);
     
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_group_t group = dispatch_group_create();
     
-    NSMutableArray<NSDictionary *> *chunkRanges = [NSMutableArray new];
     
-    for(int i = 0; i < numChunks; i++) {
-        NSUInteger rangeStart = chunkSize * i;
-        NSUInteger rangeLength = numBytes - rangeStart;
-        if(rangeLength > chunkSize) rangeLength = chunkSize;
+    for(int i = 0; i < chunks.count; i++) {
+        NSDictionary * chunk = chunks[i];
+        double rangeStart = [[chunk objectForKey:@"position"] doubleValue];
+        double rangeLength = [[chunk objectForKey:@"size"] doubleValue];
+        NSString * chunkPath = [chunk objectForKey:@"path"];
         
-        [chunkRanges addObject: @{
-            @"position": [NSNumber numberWithUnsignedLongLong:rangeStart],
-            @"size": [NSNumber numberWithUnsignedLongLong:rangeLength]
-        }];
         
         dispatch_group_async(group, queue, ^{
             // This also doesn't load the file content into memory
             NSData *chunk = [parentFile subdataWithRange:NSMakeRange(rangeStart, rangeLength)];
             BOOL succeeded = [chunk writeToFile:[chunkPath stringByAppendingFormat:@"/%d",i] atomically:NO];
-            if(!succeeded)
-                error = [NSError errorWithDomain:@"ChunkFile" code:0 userInfo: @{
-                    @"message": @"saving chunk failed"
-                }];
+            if(succeeded) return;
+            error = [NSError errorWithDomain:@"ChunkFile" code:0 userInfo: @{ @"message": @"saving chunk failed" }];
         });
     }
     
@@ -291,7 +281,8 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
         reject(@"ChunkFile", @"Failed to chunk file", error);
         return;
     };
-    resolve(chunkRanges);
+    
+    resolve([NSNumber numberWithBool:YES]);
 }
 
 

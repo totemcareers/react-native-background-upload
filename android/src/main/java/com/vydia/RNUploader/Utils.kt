@@ -4,11 +4,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.net.Network
 import android.os.Build
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableArray
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import net.gotev.uploadservice.okhttp.OkHttpStack
 import okhttp3.OkHttpClient
 import java.io.RandomAccessFile
@@ -32,37 +32,42 @@ fun buildHttpStack(network: Network?): OkHttpStack? {
   )
 }
 
-fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int): ReadableArray {
-  val file = RandomAccessFile(parentFilePath, "r")
+class Chunk(val position: Long, val size: Long, val path: String) {
+  companion object {
+    fun fromReactMethodParams(paramChunks: ReadableArray): List<Chunk> {
+      val chunks = mutableListOf<Chunk>();
+      for (i in 0 until paramChunks.size()) {
+        val paramChunk = paramChunks.getMap(i);
+        val position = paramChunk.getDouble("position").toLong()
+        val size = paramChunk.getDouble("size").toLong()
+        val path = paramChunk.getString("path") ?: throw Throwable("Path is not defined")
 
-  val numBytes = file.length()
-  val chunkSize = numBytes / numChunks + if (numBytes % numChunks > 0) 1 else 0
-  val chunkRanges = Arguments.createArray()
+        if (size <= 0) throw Throwable("Size is smaller than or equal 0")
+        if (position < 0) throw Throwable("Position is smaller than 0")
 
-
-  runBlocking(Dispatchers.IO) {
-    for (i in 0 until numChunks) {
-      val outputPath = chunkDirPath.plus("/").plus(i.toString())
-      val outputFile = RandomAccessFile(outputPath, "rw")
-
-      val rangeStart = chunkSize * i
-      var rangeLength = numBytes - rangeStart
-      if (rangeLength > chunkSize) rangeLength = chunkSize
-
-      chunkRanges.pushMap(Arguments.createMap().apply {
-        putString("position", rangeStart.toString())
-        putString("size", rangeLength.toString())
-      })
-
-      launch {
-        val input = file.channel.map(FileChannel.MapMode.READ_ONLY, rangeStart, rangeLength)
-        val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, rangeLength)
-        output.put(input)
+        chunks.add(Chunk(position, size, path))
       }
+
+      return chunks
     }
   }
+}
 
-  return chunkRanges
+suspend fun chunkFile(
+  scope: CoroutineScope,
+  parentFilePath: String,
+  chunks: List<Chunk>
+) {
+  val parentFile = scope.async(Dispatchers.IO) { RandomAccessFile(parentFilePath, "r") }.await()
+
+  chunks.map {
+    scope.async(Dispatchers.IO) {
+      val outputFile = RandomAccessFile(it.path, "rw")
+      val input = parentFile.channel.map(FileChannel.MapMode.READ_ONLY, it.position, it.size)
+      val output = outputFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, it.size)
+      output.put(input)
+    }
+  }.awaitAll()
 }
 
 fun initializeNotificationChannel(notificationChannel: String, manager: NotificationManager) {

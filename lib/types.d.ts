@@ -107,18 +107,4 @@ export interface AddListener {
     (event: 'completed', uploadId: UploadId | null, callback: (data: CompletedData) => void): EventSubscription;
     (event: 'cancelled', uploadId: UploadId | null, callback: (data: EventData) => void): EventSubscription;
 }
-export interface ChunkInfo {
-    /**
-     * Byte position of the chunk
-     */
-    position: number;
-    /**
-     * Byte length of the chunk
-     */
-    size: number;
-}
-export interface RawChunkInfo {
-    position: number | string;
-    size: number | string;
-}
 export {};
