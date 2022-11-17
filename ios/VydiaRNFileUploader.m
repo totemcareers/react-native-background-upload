@@ -299,9 +299,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
         dispatch_group_async(group, queue, ^{
             // This also doesn't load the file content into memory
             NSData *chunk = [parentFile subdataWithRange:NSMakeRange(rangeStart, rangeLength)];
-            BOOL succeeded = [chunk writeToFile:[chunkPath stringByAppendingFormat:@"/%d",i] atomically:NO];
-            if(succeeded) return;
-            error = [NSError errorWithDomain:@"ChunkFile" code:0 userInfo: @{ @"message": @"saving chunk failed" }];
+            [chunk writeToFile:chunkPath options:0 error:&error];
         });
     }
     
