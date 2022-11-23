@@ -22,7 +22,7 @@
 		43A3E07C5A51481EF8C9705D /* libPods-RNBackgroundExample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6355312C2B5407FB1A454342 /* libPods-RNBackgroundExample.a */; };
 		5B636E22053D7E6A939377A0 /* libPods-RNBackgroundExample-RNBackgroundExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C37FB7F638A6A104556586E /* libPods-RNBackgroundExample-RNBackgroundExampleTests.a */; };
 		80A9FB58DBDAD584DFACC466 /* libPods-RNBackgroundExample-tvOSTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE335F7DAB54CB6E0337713F /* libPods-RNBackgroundExample-tvOSTests.a */; };
-		DC352C92284AB87B008DBB93 /* Helper.m in Sources */ = {isa = PBXBuildFile; fileRef = DC352C91284AB87B008DBB93 /* Helper.m */; };
+		DC5DD1AA2925E02D00A3D415 /* Helper.m in Sources */ = {isa = PBXBuildFile; fileRef = DC5DD1A82925E02D00A3D415 /* Helper.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,9 +71,8 @@
 		BB19BEAAB0AA53E19D1E78EC /* Pods-RNBackgroundExampleTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RNBackgroundExampleTests.debug.xcconfig"; path = "Target Support Files/Pods-RNBackgroundExampleTests/Pods-RNBackgroundExampleTests.debug.xcconfig"; sourceTree = "<group>"; };
 		C7E73CCD13C30F71B0347914 /* Pods-RNBackgroundExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RNBackgroundExample.release.xcconfig"; path = "Target Support Files/Pods-RNBackgroundExample/Pods-RNBackgroundExample.release.xcconfig"; sourceTree = "<group>"; };
 		CE335F7DAB54CB6E0337713F /* libPods-RNBackgroundExample-tvOSTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RNBackgroundExample-tvOSTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC352C90284AB87B008DBB93 /* Helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Helper.h; path = ../../../ios/Helper.h; sourceTree = "<group>"; };
-		DC352C91284AB87B008DBB93 /* Helper.m */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.objc; name = Helper.m; path = ../../../ios/Helper.m; sourceTree = "<group>"; tabWidth = 4; };
-		DC352C93284AB884008DBB93 /* VydiaRNFileUploader.m */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.objc; name = VydiaRNFileUploader.m; path = ../../../ios/VydiaRNFileUploader.m; sourceTree = "<group>"; tabWidth = 4; };
+		DC5DD1A82925E02D00A3D415 /* Helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = Helper.m; path = ../../../ios/Helper.m; sourceTree = "<group>"; };
+		DC5DD1A92925E02D00A3D415 /* Helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Helper.h; path = ../../../ios/Helper.h; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		ED2971642150620600B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS12.0.sdk/System/Library/Frameworks/JavaScriptCore.framework; sourceTree = DEVELOPER_DIR; };
 		EE91229EA4D50C4123FD20C0 /* Pods-RNBackgroundExample-tvOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RNBackgroundExample-tvOS.debug.xcconfig"; path = "Target Support Files/Pods-RNBackgroundExample-tvOS/Pods-RNBackgroundExample-tvOS.debug.xcconfig"; sourceTree = "<group>"; };
@@ -171,9 +170,8 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				DC352C90284AB87B008DBB93 /* Helper.h */,
-				DC352C91284AB87B008DBB93 /* Helper.m */,
-				DC352C93284AB884008DBB93 /* VydiaRNFileUploader.m */,
+				DC5DD1A92925E02D00A3D415 /* Helper.h */,
+				DC5DD1A82925E02D00A3D415 /* Helper.m */,
 				13B07FAE1A68108700A75B9A /* RNBackgroundExample */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* RNBackgroundExampleTests */,
@@ -590,7 +588,7 @@
 				29535F4924F83FC70097787C /* App.swift in Sources */,
 				13B07FBC1A68108700A75B9A /* AppDelegate.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
-				DC352C92284AB87B008DBB93 /* Helper.m in Sources */,
+				DC5DD1AA2925E02D00A3D415 /* Helper.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

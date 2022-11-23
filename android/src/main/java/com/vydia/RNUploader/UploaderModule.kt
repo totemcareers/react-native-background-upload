@@ -9,7 +9,10 @@ import com.facebook.react.BuildConfig
 import com.facebook.react.bridge.*
 import com.vydia.RNUploader.Upload.Companion.defaultNotificationChannel
 import com.vydia.RNUploader.Upload.Companion.uploads
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import net.gotev.uploadservice.UploadService
 import net.gotev.uploadservice.UploadServiceConfig.initialize
 import net.gotev.uploadservice.UploadServiceConfig.retryPolicy
@@ -22,12 +25,12 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 
-@OptIn(DelicateCoroutinesApi::class)
 class UploaderModule(val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
   private val uploadEventListener = GlobalRequestObserverDelegate(reactContext)
   private val connectivityManager =
     reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+  private val ioCoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
 
   companion object {
@@ -83,11 +86,14 @@ class UploaderModule(val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun chunkFile(parentFilePath: String, chunkDirPath: String, numChunks: Int, promise: Promise) {
-    try {
-      promise.resolve(chunkFile(parentFilePath, chunkDirPath, numChunks))
-    } catch (error: Throwable) {
-      promise.reject(error)
+  fun chunkFile(parentFilePath: String, chunks: ReadableArray, promise: Promise) {
+    ioCoroutineScope.launch {
+      try {
+        chunkFile(this, parentFilePath, Chunk.fromReactMethodParams(chunks))
+        promise.resolve(true)
+      } catch (e: Exception) {
+        promise.reject("chunkFileError", e)
+      }
     }
   }
 

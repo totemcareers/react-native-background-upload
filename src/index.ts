@@ -2,13 +2,7 @@
  * Handles HTTP background file uploads from an iOS or Android device.
  */
 import { NativeModules, DeviceEventEmitter, Platform } from 'react-native';
-import {
-  AddListener,
-  ChunkInfo,
-  RawChunkInfo,
-  UploadId,
-  UploadOptions,
-} from 'types';
+import { AddListener, UploadId, UploadOptions } from 'types';
 
 const NativeModule =
   NativeModules.VydiaRNFileUploader || NativeModules.RNFileUploader; // iOS is VydiaRNFileUploader and Android is RNFileUploader
@@ -94,20 +88,16 @@ export const addListener: AddListener = (eventType, uploadId, listener) => {
  */
 export const chunkFile = async (
   parentFilePath: string,
-  chunkDirPath: string,
-  numChunks: number,
-): Promise<ChunkInfo[]> => {
-  const chunks: RawChunkInfo[] = await NativeModule.chunkFile(
-    parentFilePath,
-    chunkDirPath,
-    numChunks,
-  );
-
-  return chunks.map((chunk) => ({
-    ...chunk,
-    position: Number(chunk.position),
-    size: Number(chunk.size),
-  }));
+  chunks: {
+    /** Byte position of the chunk */
+    position: number;
+    /** Byte length of the chunk */
+    size: number;
+    /** Where the chunk will be exported to */
+    path: string;
+  }[],
+) => {
+  await NativeModule.chunkFile(parentFilePath, chunks);
 };
 
 const ios = {
