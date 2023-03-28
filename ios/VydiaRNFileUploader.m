@@ -17,10 +17,10 @@ static int uploadId = 0;
 
 
 static NSString *BACKGROUND_SESSION_ID = @"ReactNativeBackgroundUpload";
-static NSString *DISCRETIONARY_BACKGROUND_SESSION_ID = @"ReactNativeBackgroundUpload_Discretionary";
+static NSString *WIFI_ONLY_BACKGROUND_SESSION_ID = @"ReactNativeBackgroundUpload_WifiOnly";
 
 NSURLSession *_urlSession = nil;
-NSURLSession *_discretionaryUrlSession = nil;
+NSURLSession *_wifiUrlSession = nil;
 NSMutableDictionary *_responsesData = nil;
 
 + (BOOL)requiresMainQueueSetup {
@@ -35,7 +35,7 @@ NSMutableDictionary *_responsesData = nil;
     // Initializes as early as possible to receive delegate events
     // sent from previously registered URLSessions
     [self urlSession];
-    [self discretionaryUrlSession];
+    [self wifiUrlSession];
     return self;
 }
 
@@ -124,7 +124,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
     NSString *appGroup = options[@"appGroup"];
     NSDictionary *headers = options[@"headers"];
     NSDictionary *parameters = options[@"parameters"];
-    BOOL isDiscretionary = [options[@"isDiscretionary"] boolValue];
+    BOOL isWifiOnly = [options[@"isWifiOnly"] boolValue];
     
     @try {
         NSURL *requestUrl = [NSURL URLWithString: uploadUrl];
@@ -163,7 +163,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
         
         NSURLSessionDataTask *uploadTask;
         
-        NSURLSession *session = isDiscretionary ? [self discretionaryUrlSession] : [self urlSession];
+        NSURLSession *session = isWifiOnly ? [self wifiUrlSession] : [self urlSession];
         if (appGroup != nil && ![appGroup isEqualToString:@""]) {
             session.configuration.sharedContainerIdentifier = appGroup;
         }
@@ -207,7 +207,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
 RCT_EXPORT_METHOD(cancelUpload: (NSString *)cancelUploadId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
     NSMutableArray<NSURLSession *> *sessions = [NSMutableArray array];
     if(_urlSession) [sessions addObject:_urlSession];
-    if(_discretionaryUrlSession) [sessions addObject:_discretionaryUrlSession];
+    if(_wifiUrlSession) [sessions addObject:_wifiUrlSession];
     
     for (NSURLSession *session in sessions) {
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -234,7 +234,7 @@ RCT_EXPORT_METHOD(cancelUpload: (NSString *)cancelUploadId resolve:(RCTPromiseRe
 RCT_EXPORT_METHOD(getUploadStatus: (NSString *)uploadId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
     NSMutableArray<NSURLSession *> *sessions = [NSMutableArray array];
     if(_urlSession) [sessions addObject:_urlSession];
-    if(_discretionaryUrlSession) [sessions addObject:_discretionaryUrlSession];
+    if(_wifiUrlSession) [sessions addObject:_wifiUrlSession];
     
     __block Boolean resolved = false;
     
@@ -377,12 +377,12 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
     return _urlSession;
 }
 
-- (NSURLSession *)discretionaryUrlSession {
-    if (_discretionaryUrlSession) return _discretionaryUrlSession;
+- (NSURLSession *)wifiUrlSession {
+    if (_wifiUrlSession) return _wifiUrlSession;
     
-    NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:DISCRETIONARY_BACKGROUND_SESSION_ID];
+    NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:WIFI_ONLY_BACKGROUND_SESSION_ID];
     
-    [sessionConfiguration setDiscretionary:YES];
+    [sessionConfiguration setDiscretionary:NO];
     [sessionConfiguration setAllowsCellularAccess:NO];
     [sessionConfiguration setHTTPMaximumConnectionsPerHost:1];
     
@@ -395,9 +395,9 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
         [sessionConfiguration setAllowsExpensiveNetworkAccess:NO];
     }
     
-    _discretionaryUrlSession = [NSURLSession sessionWithConfiguration:sessionConfiguration delegate:self delegateQueue:nil];
+    _wifiUrlSession = [NSURLSession sessionWithConfiguration:sessionConfiguration delegate:self delegateQueue:nil];
     
-    return _discretionaryUrlSession;
+    return _wifiUrlSession;
 }
 
 #pragma NSURLSessionTaskDelegate
