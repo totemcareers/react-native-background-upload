@@ -124,7 +124,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
     NSString *appGroup = options[@"appGroup"];
     NSDictionary *headers = options[@"headers"];
     NSDictionary *parameters = options[@"parameters"];
-    BOOL isWifiOnly = [options[@"isWifiOnly"] boolValue];
+    BOOL wifiOnly = [options[@"wifiOnly"] boolValue];
 
     @try {
         NSURL *requestUrl = [NSURL URLWithString: uploadUrl];
@@ -163,7 +163,7 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
 
         NSURLSessionDataTask *uploadTask;
 
-        NSURLSession *session = isWifiOnly ? [self wifiUrlSession] : [self urlSession];
+        NSURLSession *session = wifiOnly ? [self wifiUrlSession] : [self urlSession];
         if (appGroup != nil && ![appGroup isEqualToString:@""]) {
             session.configuration.sharedContainerIdentifier = appGroup;
         }

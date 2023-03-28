@@ -72,8 +72,8 @@ class Upload(options: ReadableMap) {
     if (options.hasKey("maxRetries") && options.getType("maxRetries") == ReadableType.Number)
       maxRetries = options.getInt("maxRetries")
 
-    if (options.hasKey("isWifiOnly"))
-      wifiOnly = options.getBoolean("isWifiOnly")
+    if (options.hasKey("wifiOnly"))
+      wifiOnly = options.getBoolean("wifiOnly")
 
 
     val notification: WritableMap = WritableNativeMap()

@@ -87,7 +87,7 @@ export type UploadOptions = {
     [index: string]: string;
   };
   // Whether the upload should wait for wifi before starting
-  isWifiOnly?: boolean;
+  wifiOnly?: boolean;
 } & (AndroidOnlyUploadOptions | IOSOnlyUploadOptions) &
   (RawUploadOptions | MultipartUploadOptions);
 
