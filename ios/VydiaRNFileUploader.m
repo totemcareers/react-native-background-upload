@@ -359,7 +359,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
 
     NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:BACKGROUND_SESSION_ID];
 
-    [sessionConfiguration setWifiOnly:NO];
+    [sessionConfiguration setDiscretionary:NO];
     [sessionConfiguration setAllowsCellularAccess:YES];
     [sessionConfiguration setHTTPMaximumConnectionsPerHost:1];
 
@@ -382,7 +382,7 @@ RCT_EXPORT_METHOD(chunkFile: (NSString *)parentFilePath
 
     NSURLSessionConfiguration *sessionConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:WIFI_ONLY_BACKGROUND_SESSION_ID];
 
-    [sessionConfiguration setWifiOnly:NO];
+    [sessionConfiguration setDiscretionary:NO];
     [sessionConfiguration setAllowsCellularAccess:NO];
     [sessionConfiguration setHTTPMaximumConnectionsPerHost:1];
 
