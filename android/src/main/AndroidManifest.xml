@@ -2,5 +2,7 @@
     package="com.vydia.RNUploader">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <application>
+        <receiver android:name=".NotificationReceiver" />
+    </application>
 </manifest>
