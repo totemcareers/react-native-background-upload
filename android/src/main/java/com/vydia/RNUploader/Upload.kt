@@ -1,7 +1,6 @@
 package com.vydia.RNUploader
 
 import com.facebook.react.bridge.ReadableMap
-import io.ktor.http.*
 import java.util.*
 
 // Data model of a single upload
@@ -11,7 +10,7 @@ data class Upload(
   val id: String,
   val url: String,
   val path: String,
-  val method: HttpMethod,
+  val method: String,
   val maxRetries: Int,
   val wifiOnly: Boolean,
   val headers: Map<String, String>,
@@ -21,15 +20,18 @@ data class Upload(
   val notificationTitleNoWifi: String,
   val notificationChannel: String,
 ) {
+  class MissingOptionException(optionName: String) :
+    IllegalArgumentException("Missing '$optionName'")
+
   companion object {
-    fun fromOptions(options: ReadableMap) = Upload(
-      id = options.getString("customUploadId") ?: UUID.randomUUID().toString(),
-      url = options.getString("url") ?: throw InvalidUploadOptionException("Missing 'url'"),
-      path = options.getString("path") ?: throw InvalidUploadOptionException("Missing 'path'"),
-      method = (options.getString("method") ?: "POST").let { HttpMethod.parse(it) },
-      maxRetries = if (options.hasKey("maxRetries")) options.getInt("maxRetries") else 5,
-      wifiOnly = if (options.hasKey("wifiOnly")) options.getBoolean("wifiOnly") else false,
-      headers = options.getMap("headers").let { headers ->
+    fun fromReadableMap(map: ReadableMap) = Upload(
+      id = map.getString("customUploadId") ?: UUID.randomUUID().toString(),
+      url = map.getString(Upload::url.name) ?: throw MissingOptionException(Upload::url.name),
+      path = map.getString(Upload::path.name) ?: throw MissingOptionException(Upload::path.name),
+      method = map.getString(Upload::method.name) ?: "POST",
+      maxRetries = if (map.hasKey(Upload::maxRetries.name)) map.getInt(Upload::maxRetries.name) else 5,
+      wifiOnly = if (map.hasKey(Upload::wifiOnly.name)) map.getBoolean(Upload::wifiOnly.name) else false,
+      headers = map.getMap(Upload::headers.name).let { headers ->
         if (headers == null) return@let mapOf()
         val map = mutableMapOf<String, String>()
         for (entry in headers.entryIterator) {
@@ -37,19 +39,19 @@ data class Upload(
         }
         return@let map
       },
-      notificationId = options.getString("notificationId")
-        ?: throw InvalidUploadOptionException("Missing 'notificationId'"),
-      notificationTitle = options.getString("notificationTitle")
-        ?: throw InvalidUploadOptionException("Missing 'notificationTitle'"),
-      notificationTitleNoInternet = options.getString("notificationTitleNoInternet")
-        ?: throw InvalidUploadOptionException("Missing 'notificationTitleNoInternet'"),
-      notificationTitleNoWifi = options.getString("notificationTitleNoWifi")
-        ?: throw InvalidUploadOptionException("Missing 'notificationTitleNoWifi'"),
-      notificationChannel = options.getString("notificationChannel")
-        ?: throw InvalidUploadOptionException("Missing 'notificationChannel'"),
+      notificationId = map.getString(Upload::notificationId.name)
+        ?: throw MissingOptionException(Upload::notificationId.name),
+      notificationTitle = map.getString(Upload::notificationTitle.name)
+        ?: throw MissingOptionException(Upload::notificationTitle.name),
+      notificationTitleNoInternet = map.getString(Upload::notificationTitleNoInternet.name)
+        ?: throw MissingOptionException(Upload::notificationTitleNoInternet.name),
+      notificationTitleNoWifi = map.getString(Upload::notificationTitleNoWifi.name)
+        ?: throw MissingOptionException(Upload::notificationTitleNoWifi.name),
+      notificationChannel = map.getString(Upload::notificationChannel.name)
+        ?: throw MissingOptionException(Upload::notificationChannel.name),
     )
   }
 }
 
 
-class InvalidUploadOptionException(message: String) : IllegalArgumentException(message)
+
