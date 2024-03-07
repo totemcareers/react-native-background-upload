@@ -12,11 +12,9 @@ Documentation has been modified to reflect the changes made to this library.
 
 Note: if you are installing on React Native < 0.47, use `react-native-background-upload@3.0.0` instead of `react-native-background-upload`
 
-## 2. Link Native Code
+## 2. Native Setup
 
-### Autolinking (React Native >= 0.60)
-
-##### iOS
+### iOS
 
 `cd ./ios && pod install && cd ../`
 
