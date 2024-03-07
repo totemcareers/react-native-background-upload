@@ -18,23 +18,6 @@ Note: if you are installing on React Native < 0.47, use `react-native-background
 
 `cd ./ios && pod install && cd ../`
 
-### Android
-
-If your app targets Android 14 (API 34) or higher, you need to add the following permissions to your AndroidManifest.xml:
-
-```xml
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-<application>
-  ...
-  <service
-          android:name="androidx.work.impl.foreground.SystemForegroundService"
-          android:foregroundServiceType="dataSync"
-          tools:node="merge" />
-  ...
-</application>
-```
-
 ## 3. Expo
 
 To use this library with [Expo](https://expo.io) one must first detach (eject) the project and follow [step 2](#2-link-native-code) instructions. Additionally on iOS there is a must to add a Header Search Path to other dependencies which are managed using Pods. To do so one has to add `$(SRCROOT)/../../../ios/Pods/Headers/Public` to Header Search Path in `VydiaRNFileUploader` module using XCode.
