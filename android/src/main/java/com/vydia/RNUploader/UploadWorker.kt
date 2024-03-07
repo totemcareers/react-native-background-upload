@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED
 import android.net.NetworkCapabilities.TRANSPORT_WIFI
@@ -22,6 +23,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import java.io.File
+import java.io.IOException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 // All workers will start `doWork` immediately but only 1 request is active at a time.
@@ -85,19 +88,16 @@ class UploadWorker(private val context: Context, params: WorkerParameters) :
     var isRetried = false
     while (true) {
       try {
-        // - Delay if it's an actual retry.
-        if (isRetried) {
-          // - "delay" should be within the "try" block to account for worker cancellation,
-          // which cancels the delay immediately and throws CancellationException.
-          // - Linear backoff instead of exponential
-          // One reason for this is we retry on invalid connections. Exponential will
-          // take too long. If the server flakes and returns 500s, we don't retry but consider
-          // the request successful. This is consistent with iOS behavior.
-          // User gets notifications for these server issues and can manually retry.
-          // Since 500s are currently rare, it's likely ok. If they're too frequent,
-          // we can consider adding exponential backoff for them.
-          delay(RETRY_DELAY)
-        }
+        // - "delay" should be within the "try" block to account for worker cancellation,
+        // which cancels the delay immediately and throws CancellationException.
+        // - Linear backoff instead of exponential. One reason for this is we retry on
+        // invalid connections. Exponential will take too long. If the server flakes and
+        // returns 500s, we don't retry but consider the request successful.
+        // This is consistent with iOS behavior. User gets notifications for
+        // these server issues and can manually retry. Since 500s are currently rare,
+        // it's likely ok. If they're too frequent, we can consider adding exponential
+        // backoff for them.
+        if (isRetried) delay(RETRY_DELAY)
         isRetried = true
 
         val response = upload() ?: continue
@@ -105,7 +105,7 @@ class UploadWorker(private val context: Context, params: WorkerParameters) :
         return@withContext Result.success()
       } catch (error: Throwable) {
         if (checkAndHandleCancellation()) throw error
-        if (checkRetry()) continue
+        if (checkRetry(error)) continue
         handleError(error)
         throw error
       }
@@ -171,17 +171,34 @@ class UploadWorker(private val context: Context, params: WorkerParameters) :
     return true
   }
 
-  private suspend fun checkRetry(): Boolean {
-    // Clearing state not needed. Retrying for free.
+  /** @return whether to retry */
+  private suspend fun checkRetry(error: Throwable): Boolean {
+    var unlimitedRetry = false
+
     // Error was thrown due to unmet network preferences.
-    // Also happens every time you switch from one network to any other,
-    // so no need to implement restarting when switching networks.
-    if (!validateAndReportConnectivity()) return true
+    // Also happens every time you switch from one network to any other
+    if (!validateAndReportConnectivity()) unlimitedRetry = true
+    // Due to the flaky nature of networking, sometimes the network is
+    // valid but the URL is still inaccessible, so keep waiting until
+    // the URL is accessible
+    else if (error is UnknownHostException) unlimitedRetry = true
+    // There are many IOExceptions that only differ by messages,
+    // so we can't check using class, but theoretically,
+    // only the one caused by file not existing should stop the retry.
+    // The rest should be related to flaky network or flaky file I/O,
+    // where we can retry without limit.
+    else if (error is IOException) {
+      try {
+        if (!File(upload.path).exists()) return false
+        unlimitedRetry = true
+      } catch (_: Throwable) {
+        // read file error, can't do anything but retry
+        unlimitedRetry = false
+      }
+    }
 
-    // Retrying while counting toward maxRetries
-    if (++retries <= upload.maxRetries) return true
-
-    return false
+    retries = if (unlimitedRetry) 0 else retries + 1
+    return retries <= upload.maxRetries
   }
 
   // Checks connection and alerts connection issues
@@ -232,7 +249,11 @@ class UploadWorker(private val context: Context, params: WorkerParameters) :
       build()
     }
 
-    return ForegroundInfo(id, notification)
+    // Starting Android 14, FOREGROUND_SERVICE_TYPE_DATA_SYNC is mandatory, otherwise app will crash
+    return if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU)
+      ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    else
+      ForegroundInfo(id, notification)
   }
 }
 
